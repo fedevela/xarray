@@ -187,18 +187,53 @@ class TestRelaxedDatasetConcatContract:
         self,
     ):
         """GUID: XCONCAT-008; first absence yields a gap, then source values."""
+        # LOGIC XCONCAT-008 / first-input absence
+        # GIVEN two ordered input datasets whose concatenation-axis lengths are
+        # known, and a target variable that exists only in the later dataset.
+        # WHEN relaxed dataset concatenation processes each input in order:
+        #   - if the target variable is absent from the current input, append a
+        #     missing-value portion matching that input's axis length;
+        #   - otherwise, append that input's unchanged target-variable values.
+        # THEN compare the complete target-variable result with the ordered
+        # sequence [first-input missing portion, later-input source values].
+        # FAIL if the first portion is not wholly missing, if its length does
+        # not match the first input, or if any later source value changes.
         assert True
 
     def test_xconcat_008_variable_absent_from_later_input_preserves_first_values_and_yields_later_missing_portion(
         self,
     ):
         """GUID: XCONCAT-008; first values precede a later missing portion."""
+        # LOGIC XCONCAT-008 / later-input absence
+        # GIVEN two ordered input datasets whose concatenation-axis lengths are
+        # known, and a target variable that exists only in the first dataset.
+        # WHEN relaxed dataset concatenation processes each input in order:
+        #   - if the target variable is present, append that input's unchanged
+        #     target-variable values;
+        #   - otherwise, append a missing-value portion matching that input's
+        #     axis length.
+        # THEN compare the complete target-variable result with the ordered
+        # sequence [first-input source values, later-input missing portion].
+        # FAIL if any first-input source value changes, if the later portion is
+        # not wholly missing, or if its length does not match the later input.
         assert True
 
     def test_xconcat_008_variable_absent_from_multiple_inputs_yields_each_missing_portion_and_preserves_present_values(
         self,
     ):
         """GUID: XCONCAT-008; multiple absences yield gaps around source values."""
+        # LOGIC XCONCAT-008 / multiple-input absence
+        # GIVEN at least three ordered input datasets with known
+        # concatenation-axis lengths, where the target variable is absent from
+        # multiple inputs and present in at least one input.
+        # WHEN relaxed dataset concatenation iterates over every input:
+        #   - if the target variable is absent, append a missing-value portion
+        #     matching that input's axis length;
+        #   - otherwise, append that input's unchanged target-variable values.
+        # THEN compare each result portion, in input order, with missing values
+        # for every absent input and source values for every present input.
+        # FAIL if any absent-input portion is not wholly missing or has the
+        # wrong length, or if any present-input value or position changes.
         assert True
 
 
