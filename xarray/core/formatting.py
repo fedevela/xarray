@@ -272,6 +272,10 @@ def summarize_variable(
     name: Hashable, var, col_width: int, marker: str = " ", max_width: int = None
 ):
     """Summarize a variable in one line, e.g., for the Dataset.__repr__."""
+    # GUID: XARRAY-007, XARRAY-008 field-rendering boundary: ``name`` owns only
+    # the label column, while the unchanged ``var`` remains authoritative for
+    # dimensions, dtype, and abbreviated data. One call emits all fields for
+    # that owner; ``col_width`` separates the label from those factual fields.
     if max_width is None:
         max_width_options = OPTIONS["display_width"]
         if not isinstance(max_width_options, int):
@@ -422,6 +426,8 @@ def indexes_repr(indexes):
 
 
 def dim_summary(obj):
+    # GUID: XARRAY-007 dimension-summary contract: Dataset overview dimensions
+    # remain sourced from the represented object's authoritative ``sizes``.
     elements = [f"{k}: {v}" for k, v in obj.sizes.items()]
     return ", ".join(elements)
 
@@ -517,6 +523,14 @@ def array_repr(arr):
 
 def dataset_repr(ds):
     summary = ["<xarray.{}>".format(type(ds).__name__)]
+
+    # GUID: XARRAY-006, XARRAY-007, XARRAY-008 architecture ownership:
+    # dataset_repr owns overview topology and the shared label-column boundary.
+    # Coordinates flow only through coords_repr and data variables only through
+    # data_vars_repr; both receive their unchanged variables through the existing
+    # summarizer contracts. dim_summary and summarize_variable remain the factual
+    # field authorities, so unit-label length affects layout but not ownership or
+    # the dependency path used to obtain dimensions, dtype, and abbreviated data.
 
     # GUID: XARRAY-003, XARRAY-004, XARRAY-005 architecture ownership:
     # dataset_repr is the sole Dataset-overview unit-label policy owner. One
