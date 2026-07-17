@@ -445,6 +445,25 @@ def _dataset_concat(
             #                                                                      XCONCAT-004]
             # FAILURE: propagate invalid dimension, position, dtype/fill, or variable
             #     concatenation failures; a missing occurrence alone is not failure.
+            #
+            # ARCHITECTURE PLACEMENT — GUID: XCONCAT-003, GUID: XCONCAT-004,
+            # GUID: XCONCAT-005
+            # `_dataset_concat` owns the contribution-assembly seam because it alone
+            # retains dataset order, per-input extents, and variable-presence state.
+            # One occurrence per dataset must cross this seam in caller order; a
+            # present occurrence remains the source `Variable`, while only an absent
+            # occurrence may be represented by a fill prototype.                [003, 004]
+            #
+            # Dependency direction is orchestration -> `dtypes`/`Variable` fill
+            # construction -> `ensure_common_dims` normalization -> `concat_vars`.
+            # Fill selection belongs here and must not widen `concat_vars` or mutate
+            # an input Dataset. `ensure_common_dims` may adapt dimensions and extents,
+            # but does not choose fill policy or reorder occurrences. `concat_vars`
+            # remains the established ordered combination port and receives
+            # `positions` unchanged.                                             [003, 004]
+            # Variables present in every input bypass fill construction but cross
+            # the same normalization and combination boundaries, so partial presence
+            # of another variable cannot alter their ordering contract.              [005]
             if k in missing_data_names:
                 sample = next(ds.variables[k] for ds in datasets if k in ds.variables)
                 missing_fill_value = fill_value
