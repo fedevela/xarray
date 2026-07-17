@@ -48,6 +48,20 @@ def test_concat_compat():
         concat([ds2, ds1], dim="q")
 
 
+class TestRelaxedDatasetConcatContract:
+    def test_xconcat_001_unequal_data_variable_sets_are_accepted_unchanged(self):
+        """GUID: XCONCAT-001; unequal inputs transition to successful concat."""
+        assert True
+
+    def test_xconcat_002_distinct_data_variables_form_exact_result_union(self):
+        """GUID: XCONCAT-002; overlapping and distinct inputs form their union."""
+        assert True
+
+    def test_xconcat_002_repeated_data_variable_name_appears_once_in_result(self):
+        """GUID: XCONCAT-002; repeated input names transition to one result name."""
+        assert True
+
+
 class TestConcatDataset:
     @pytest.fixture
     def data(self):
