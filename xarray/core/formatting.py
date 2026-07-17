@@ -308,6 +308,10 @@ def _summarize_coord_levels(coord, col_width, marker="-"):
 
 
 def summarize_datavar(name, var, col_width):
+    # GUID: XARRAY-002 contract boundary: the first argument is the presentation
+    # label consumed by layout; the original variable remains a separate input.
+    # Dataset-owned unit decoration must cross this seam without replacing or
+    # mutating the variable whose dimensions, dtype, and values are summarized.
     return summarize_variable(name, var.variable, col_width)
 
 
@@ -381,6 +385,10 @@ def _mapping_repr(mapping, title, summarizer, col_width=None):
     return "\n".join(summary)
 
 
+# GUID: XARRAY-002 architecture boundary: keep this shared section formatter
+# free of Dataset-overview unit policy. That policy belongs to dataset_repr and
+# must enter through a per-variable summarizer seam while preserving mapping
+# iteration order and the existing _mapping_repr layout dependency.
 data_vars_repr = functools.partial(
     _mapping_repr, title="Data variables", summarizer=summarize_datavar
 )
@@ -563,6 +571,11 @@ def dataset_repr(ds):
     #       APPEND that variable's summary to the Data variables section
     #   RETURN every appended summary; one variable's missing or unusable units
     #   MUST NOT suppress or alter the summaries of other variables.
+    # GUID: XARRAY-002 integration seam: dataset_repr owns the display-label
+    # provider and includes its labels in col_width; data_vars_repr remains the
+    # downstream section boundary and summarize_datavar receives each derived
+    # label alongside its unchanged owning variable. No unit policy belongs in
+    # shared Variable/DataArray or Dataset-difference representations.
     summary.append(data_vars_repr(ds.data_vars, col_width=col_width))
 
     if ds.attrs:
