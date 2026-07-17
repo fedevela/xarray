@@ -435,8 +435,27 @@ class GroupBy(SupportsArithmetic):
     def __iter__(self):
         return zip(self._unique_coord.values, self._iter_grouped())
 
+    # PSEUDOCODE — DatasetGroupBy textual representation contract:
+    # XARRAY-001: INPUT the runtime groupby class name and group name.
+    #   FORMAT the first line as "<class>, grouped over <group-name>".
+    #   APPEND the first newline directly after <group-name>; insert no whitespace.
+    # XARRAY-002: AFTER that newline, FORMAT the existing group count, labels,
+    #   punctuation, and ordering as the second line; preserve exactly two lines.
+    #   RETURN the joined first and second lines without changing any other content.
+    # XARRAY-003: IF the object is a DatasetGroupBy grouped over "letters" with
+    #   two labels "a" and "b", THEN RETURN exactly
+    #   "DatasetGroupBy, grouped over 'letters'\n2 groups with labels 'a', 'b'.".
+    # FAILURE PATH: IF class, group, count, or label formatting fails, PROPAGATE
+    #   that formatting failure; do not emit a partial or independently altered summary.
+    # ARCHITECTURE — XARRAY-001, XARRAY-002, XARRAY-003, XARRAY-004:
+    # GroupBy.__repr__ owns the complete two-line summary inherited by
+    # DatasetGroupBy; keep the newline boundary here rather than adding a
+    # DatasetGroupBy override. _unique_coord supplies the name and count, while
+    # format_array_flat remains the one-way dependency for label text only.
+    # Ordinary, multidimensional, and datetime-derived grouping keys all enter
+    # through _unique_coord, so XARRAY-004 adds no key-specific formatting path.
     def __repr__(self):
-        return "{}, grouped over {!r} \n{!r} groups with labels {}.".format(
+        return "{}, grouped over {!r}\n{!r} groups with labels {}.".format(
             self.__class__.__name__,
             self._unique_coord.name,
             self._unique_coord.size,

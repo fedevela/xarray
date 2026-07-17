@@ -1,3 +1,6 @@
+import doctest
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -383,12 +386,136 @@ repr_da = xr.DataArray(
 )
 
 
+def test_xarray_001_dataset_groupby_repr_newline_immediately_follows_group_name():
+    """XARRAY-001: text has no whitespace between the group name and newline."""
+    ds = xr.Dataset(coords={"letters": ("x", ["a", "b"])})
+
+    actual = repr(ds.groupby("letters"))
+
+    assert actual.startswith("DatasetGroupBy, grouped over 'letters'\n")
+
+
+def test_xarray_002_dataset_groupby_repr_whitespace_removal_preserves_summary():
+    """XARRAY-002: correction preserves content and the two-line layout."""
+    ds = xr.Dataset(coords={"letters": ("x", ["a", "b"])})
+
+    actual = repr(ds.groupby("letters"))
+
+    assert actual.splitlines() == [
+        "DatasetGroupBy, grouped over 'letters'",
+        "2 groups with labels 'a', 'b'.",
+    ]
+
+
+def test_xarray_003_letters_dataset_groupby_repr_matches_exact_two_line_text():
+    """XARRAY-003: the demonstrated letters grouping has the specified text."""
+    ds = xr.Dataset(coords={"letters": ("x", ["a", "b"])})
+
+    actual = str(ds.groupby("letters"))
+
+    assert actual == (
+        "DatasetGroupBy, grouped over 'letters'\n"
+        "2 groups with labels 'a', 'b'."
+    )
+
+
+def test_xarray_004_ordinary_grouping_key_repr_has_no_trailing_whitespace():
+    """XARRAY-004: ordinary-key expected and actual output are whitespace-free."""
+    ds = xr.Dataset(coords={"letters": ("x", ["a", "b"])})
+    expected = (
+        "DatasetGroupBy, grouped over 'letters'\n"
+        "2 groups with labels 'a', 'b'."
+    )
+
+    actual = repr(ds.groupby("letters"))
+    expected_first_line, _ = expected.split("\n", 1)
+    actual_first_line, _ = actual.split("\n", 1)
+
+    assert expected_first_line == expected_first_line.rstrip()
+    assert actual_first_line == actual_first_line.rstrip()
+    assert actual == expected
+
+
+def test_xarray_004_multidimensional_grouping_key_repr_preserves_other_content():
+    """XARRAY-004: multidimensional-key output changes only in whitespace."""
+    ds = xr.Dataset(
+        data_vars={"value": (("x", "y"), [[10, 20], [30, 40]])},
+        coords={"key": (("x", "y"), [[2, 1], [2, 3]])},
+    )
+    expected = (
+        "DatasetGroupBy, grouped over 'key'\n"
+        "3 groups with labels 1, 2, 3."
+    )
+
+    actual = repr(ds.groupby("key"))
+    expected_first_line, _ = expected.split("\n", 1)
+    actual_first_line, _ = actual.split("\n", 1)
+
+    assert expected_first_line == expected_first_line.rstrip()
+    assert actual_first_line == actual_first_line.rstrip()
+    assert actual == expected
+
+
+def test_xarray_004_datetime_grouping_key_repr_preserves_other_content():
+    """XARRAY-004: datetime-key output changes only in whitespace."""
+    ds = xr.Dataset(
+        coords={"time": pd.date_range("2001-01-01", periods=4, freq="MS")}
+    )
+    expected = (
+        "DatasetGroupBy, grouped over 'month'\n"
+        "4 groups with labels 1, 2, 3, 4."
+    )
+
+    actual = repr(ds.groupby("time.month"))
+    expected_first_line, _ = expected.split("\n", 1)
+    actual_first_line, _ = actual.split("\n", 1)
+
+    assert expected_first_line == expected_first_line.rstrip()
+    assert actual_first_line == actual_first_line.rstrip()
+    assert actual == expected
+
+
+def test_xarray_005_affected_dataset_groupby_doctest_exact_comparison_has_no_trailing_whitespace():
+    """XARRAY-005: exact doctest output is whitespace-free."""
+    source = (
+        '>>> ds = xr.Dataset(coords={"letters": ("x", ["a", "b"])})\n'
+        '>>> ds.groupby("letters")\n'
+        "DatasetGroupBy, grouped over 'letters'\n"
+        "2 groups with labels 'a', 'b'.\n"
+    )
+    test = doctest.DocTestParser().get_doctest(
+        source, {"xr": xr}, "dataset_groupby_repr", None, 0
+    )
+    expected = test.examples[-1].want
+    runner = doctest.DocTestRunner(optionflags=0)
+
+    assert all(line == line.rstrip() for line in expected.splitlines())
+    assert all(not example.options for example in test.examples)
+    assert runner.run(test) == doctest.TestResults(failed=0, attempted=2)
+
+
+def test_xarray_006_changed_lines_end_without_whitespace():
+    """XARRAY-006: every source, test, documentation, and repr line is clean."""
+    artifacts = [Path(__file__), Path(__file__).parents[1] / "core" / "groupby.py"]
+
+    for artifact in artifacts:
+        lines = artifact.read_text(encoding="utf-8").splitlines()
+        trailing_whitespace = [
+            line_number
+            for line_number, line in enumerate(lines, 1)
+            if line != line.rstrip()
+        ]
+        assert not trailing_whitespace, (
+            f"{artifact} has trailing whitespace on lines {trailing_whitespace}"
+        )
+
+
 @pytest.mark.parametrize("dim", ["x", "y", "z", "month"])
 @pytest.mark.parametrize("obj", [repr_da, repr_da.to_dataset(name="a")])
 def test_groupby_repr(obj, dim):
     actual = repr(obj.groupby(dim))
     expected = "%sGroupBy" % obj.__class__.__name__
-    expected += ", grouped over %r " % dim
+    expected += ", grouped over %r" % dim
     expected += "\n%r groups with labels " % (len(np.unique(obj[dim])))
     if dim == "x":
         expected += "1, 2, 3, 4, 5."
@@ -405,7 +532,7 @@ def test_groupby_repr(obj, dim):
 def test_groupby_repr_datetime(obj):
     actual = repr(obj.groupby("t.month"))
     expected = "%sGroupBy" % obj.__class__.__name__
-    expected += ", grouped over 'month' "
+    expected += ", grouped over 'month'"
     expected += "\n%r groups with labels " % (len(np.unique(obj.t.dt.month)))
     expected += "1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12."
     assert actual == expected
