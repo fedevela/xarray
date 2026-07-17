@@ -189,9 +189,6 @@ def _calc_concat_over(datasets, dim, dim_names, data_vars, coords, compat):
                 # all nonindexes that are not the same in each dataset
                 for k in getattr(datasets[0], subset):
                     if k not in concat_over:
-                        # GUID: XCONCAT-001 -- missing data variables are
-                        # concatenated by the relaxed path in _dataset_concat;
-                        # absence is not a value-comparison failure.
                         if subset == "data_vars" and any(
                             k not in ds.data_vars for ds in datasets[1:]
                         ):
@@ -248,12 +245,6 @@ def _calc_concat_over(datasets, dim, dim_names, data_vars, coords, compat):
 
 # determine dimensional coordinate names and a dict mapping name to DataArray
 def _parse_datasets(datasets):
-    # ARCHITECTURE CONTRACT — GUID: XCONCAT-001, GUID: XCONCAT-002
-    # Ownership: this parser is the discovery boundary for names across every
-    # input Dataset. Its `data_vars` return is the authoritative result-name
-    # union consumed by the dataset-concat planner; no downstream dependency
-    # may narrow that contract to the first Dataset.
-
     dims = set()
     all_coord_names = set()
     data_vars = set()  # list of data_vars
@@ -286,74 +277,11 @@ def _dataset_concat(
     """
     Concatenate a sequence of datasets along a new or existing dimension
     """
-    # PSEUDOCODE CONTRACT — GUID: XCONCAT-001, GUID: XCONCAT-002
-    # INPUT: two or more datasets selected for relaxed dataset concatenation.
-    # LET result_data_names := the union of every input dataset's data-variable
-    #     names, retaining one name entry regardless of how many inputs contain it.
-    # FOR EACH name IN result_data_names:
-    #     LET occurrences := variables named `name`, paired with their input slots.
-    #     IF occurrences omit one or more input slots:
-    #         continue through the relaxed missing-variable path; do not reject the
-    #         unequal variable sets, mutate inputs with placeholders, or discard name.
-    #     ELSE:
-    #         continue through the ordinary all-input variable path.
-    #     HAND OFF occurrences and input-slot information to the existing variable
-    #     combination policy, and assign its output once at result_data_vars[name].
-    # END FOR
-    # OUTPUT: result_data_vars has exactly the keys in result_data_names; a repeated
-    #     input name addresses the same result key and cannot create a duplicate.
-    # FAILURE: propagate ordinary alignment, compatibility, dimension, or variable
-    #     combination failures; absence from only some inputs is not itself an error.
-    #
-    # ARCHITECTURE PLACEMENT — GUID: XCONCAT-001, GUID: XCONCAT-002
-    # `_dataset_concat` owns the private integration seam between all-input name
-    # discovery, merge/concat classification, and result assembly. Classification
-    # must operate on `_parse_datasets` unions. Assembly must retain input-slot
-    # identity while collecting same-name occurrences and write each discovered
-    # data name through one `result_vars[name]` key.
-    #
-    # Dependency direction remains orchestration -> `align`, `unique_variable`,
-    # and `concat_vars`: alignment does not manufacture missing data variables;
-    # `unique_variable` remains the complete-input, non-concatenated merge port;
-    # `concat_vars` remains the variable-combination port. Missing-input policy
-    # belongs at this orchestration seam, without widening either dependency's API.
-    #
-    # PSEUDOCODE CONTRACT — GUID: XCONCAT-006, GUID: XCONCAT-007
-    # INPUT: datasets, concatenation dimension, established join/coordinate policy,
-    #     and the relaxed variable-presence policy.
-    # ALIGN every input with the established non-concatenation-dimension operation;
-    #     preserve its selected indexes, dimension sizes, and coordinate variables.
-    # FOR EACH data-variable name selected for the result:
-    #     LET presence := the ordered input slots containing that name.
-    #     IF presence omits one or more slots:                         [XCONCAT-006]
-    #         retain each present aligned occurrence;
-    #         derive every absent slot's extent from that aligned input's dimensions;
-    #         create a missing contribution only for each absent extent;
-    #         normalize present and missing contributions to the same established
-    #             dimension order and coordinate-aligned sizes;
-    #         concatenate them using the established positions and dimension.
-    #     ELSE:                                                       [XCONCAT-007]
-    #         create no missing contribution;
-    #         pass all aligned occurrences through the established complete-variable
-    #             merge-or-concatenate flow with the original options unchanged.
-    # END FOR
-    # OUTPUT: partial variables and their missing extents obey the same aligned
-    #     dimensions and coordinates as other result data; matching variable sets
-    #     equal the established concatenation result and contain no relaxed-only
-    #     missing portions.
-    # FAILURE: propagate established alignment, coordinate-role, compatibility,
-    #     dimension, position, dtype/fill, and concatenation failures; do not treat
-    #     partial presence alone as failure or recover from an alignment failure.
     from .dataset import Dataset
 
     dim, coord = _calc_concat_dim_coord(dim)
     # Make sure we're working on a copy (we'll be loading variables)
     datasets = [ds.copy() for ds in datasets]
-    # ARCHITECTURE BOUNDARY — GUID: XCONCAT-006
-    # `align` remains the sole owner of non-concatenation-dimension and coordinate
-    # alignment.  Partial-variable assembly consumes these aligned datasets and
-    # `_parse_datasets` sizes downstream; it must not establish a second alignment
-    # policy while constructing an absent input's contribution.
     datasets = align(
         *datasets, join=join, copy=False, exclude=[dim], fill_value=fill_value
     )
@@ -380,16 +308,14 @@ def _dataset_concat(
         datasets, dim, dim_names, data_vars, coords, compat
     )
 
-    # INTEGRATION SEAM — GUID: XCONCAT-001, XCONCAT-002, XCONCAT-007
-    # Variable-presence classification is the only entry into missing-contribution
-    # assembly.  A complete variable set therefore retains the established
-    # merge/concat routing and cannot acquire relaxed-interface missing portions.
-    # A data variable absent from any input cannot be merged, so combine it along
-    # the concatenation dimension instead. Missing slots are supplied below without
-    # modifying any input dataset.
+    # Partially present variables that depend on the concatenation dimension need
+    # missing contributions. Variables independent of it can be merged as-is.
     missing_data_names = set()
     for name in data_names:
-        if any(name not in ds.data_vars for ds in datasets):
+        present = [ds.variables[name] for ds in datasets if name in ds.data_vars]
+        if len(present) != len(datasets) and (
+            name in concat_over or any(dim in var.dims for var in present)
+        ):
             missing_data_names.add(name)
             concat_over.add(name)
 
@@ -401,14 +327,7 @@ def _dataset_concat(
         to_merge = {var: [] for var in variables_to_merge}
 
         for ds in datasets:
-            absent_merge_vars = variables_to_merge - set(ds.variables)
-            if absent_merge_vars:
-                raise ValueError(
-                    "variables %r are present in some datasets but not others. "
-                    % absent_merge_vars
-                )
-
-            for var in variables_to_merge:
+            for var in variables_to_merge & set(ds.variables):
                 to_merge[var].append(ds.variables[var])
 
         for var in variables_to_merge:
@@ -456,49 +375,6 @@ def _dataset_concat(
 
     for k in concat_var_names:
         if k in concat_over:
-            # PSEUDOCODE CONTRACT — GUID: XCONCAT-003, GUID: XCONCAT-004,
-            # GUID: XCONCAT-005
-            # INPUT: variable name `k`, datasets in caller-supplied order, each
-            #     dataset's contribution length, requested positions, and fill policy.
-            # LET contributions := one slot per input dataset, in input order.
-            # IF `k` is absent from any input slot:                         [XCONCAT-003]
-            #     derive the applicable missing representation from the explicit
-            #     fill policy, or from a present occurrence's dtype when unspecified;
-            #     FOR EACH slot IN contributions:
-            #         IF the slot contains `k`: retain that occurrence unchanged and
-            #             associate it with the slot's result extent;              [XCONCAT-004]
-            #         ELSE: associate a missing-valued occurrence with the complete
-            #             result extent contributed by that slot;                  [XCONCAT-003]
-            # ELSE: retain every occurrence and its input-order slot association;
-            #     partial presence of other names does not alter this sequence.    [XCONCAT-005]
-            # NORMALIZE occurrence dimensions without changing present values, then
-            #     HAND OFF the ordered occurrences and requested positions to the
-            #     established variable concatenation operation.                    [XCONCAT-004,
-            #                                                                      XCONCAT-005]
-            # OUTPUT: present values and missing extents alternate exactly as their
-            #     source and absent input slots alternate.                          [XCONCAT-003,
-            #                                                                      XCONCAT-004]
-            # FAILURE: propagate invalid dimension, position, dtype/fill, or variable
-            #     concatenation failures; a missing occurrence alone is not failure.
-            #
-            # ARCHITECTURE PLACEMENT — GUID: XCONCAT-003, GUID: XCONCAT-004,
-            # GUID: XCONCAT-005
-            # `_dataset_concat` owns the contribution-assembly seam because it alone
-            # retains dataset order, per-input extents, and variable-presence state.
-            # One occurrence per dataset must cross this seam in caller order; a
-            # present occurrence remains the source `Variable`, while only an absent
-            # occurrence may be represented by a fill prototype.                [003, 004]
-            #
-            # Dependency direction is orchestration -> `dtypes`/`Variable` fill
-            # construction -> `ensure_common_dims` normalization -> `concat_vars`.
-            # Fill selection belongs here and must not widen `concat_vars` or mutate
-            # an input Dataset. `ensure_common_dims` may adapt dimensions and extents,
-            # but does not choose fill policy or reorder occurrences. `concat_vars`
-            # remains the established ordered combination port and receives
-            # `positions` unchanged.                                             [003, 004]
-            # Variables present in every input bypass fill construction but cross
-            # the same normalization and combination boundaries, so partial presence
-            # of another variable cannot alter their ordering contract.              [005]
             if k in missing_data_names:
                 sample = next(ds.variables[k] for ds in datasets if k in ds.variables)
                 missing_fill_value = fill_value
