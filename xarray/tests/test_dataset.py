@@ -192,14 +192,38 @@ class TestDataset:
     def test_xarray_001_dataset_overview_coordinate_with_displayable_units_shows_units_adjacent_to_name(
         self,
     ):
-        """Contract placeholder for GUID: XARRAY-001."""
-        assert True
+        """A Dataset coordinate displays its units. GUID: XARRAY-001."""
+        ds = Dataset(coords={"distance": ("distance", [0, 1], {"units": "km"})})
+
+        coordinate_line = next(
+            line for line in repr(ds).splitlines() if "* distance" in line
+        )
+
+        assert (
+            coordinate_line.index("distance")
+            < coordinate_line.index("km")
+            < coordinate_line.index("(distance)")
+        )
 
     def test_xarray_001_dataset_overview_multiple_coordinates_with_displayable_units_each_show_units_adjacent_to_name(
         self,
     ):
-        """Contract placeholder for GUID: XARRAY-001."""
-        assert True
+        """Each Dataset coordinate displays its units. GUID: XARRAY-001."""
+        ds = Dataset(
+            coords={
+                "latitude": ("latitude", [0, 1], {"units": "degrees_north"}),
+                "longitude": ("longitude", [2, 3], {"units": "degrees_east"}),
+            }
+        )
+
+        coordinate_lines = repr(ds).splitlines()
+        latitude_line = next(line for line in coordinate_lines if "(latitude)" in line)
+        longitude_line = next(
+            line for line in coordinate_lines if "(longitude)" in line
+        )
+
+        assert latitude_line.index("latitude") < latitude_line.index("degrees_north")
+        assert longitude_line.index("longitude") < longitude_line.index("degrees_east")
 
     def test_repr(self):
         data = create_test_data(seed=123)

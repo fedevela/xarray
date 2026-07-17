@@ -291,8 +291,10 @@ def summarize_variable(
     return front_str + values_str
 
 
-def _summarize_coord_multiindex(coord, col_width, marker):
-    first_col = pretty_print(f"  {marker} {coord.name} ", col_width)
+def _summarize_coord_multiindex(coord, col_width, marker, display_name=None):
+    if display_name is None:
+        display_name = coord.name
+    first_col = pretty_print(f"  {marker} {display_name} ", col_width)
     return "{}({}) MultiIndex".format(first_col, str(coord.dims[0]))
 
 
@@ -309,10 +311,11 @@ def summarize_datavar(name, var, col_width):
     return summarize_variable(name, var.variable, col_width)
 
 
-def summarize_coord(name: Hashable, var, col_width: int):
-    # GUID: XARRAY-001 contract boundary: `name` remains the coordinate identity
-    # used for index/MultiIndex decisions. A future Dataset-owned display label
-    # must travel separately through this internal summary seam before layout.
+def summarize_coord(name: Hashable, var, col_width: int, display_name=None):
+    # GUID: XARRAY-001: keep the raw name for index/MultiIndex decisions while
+    # allowing Dataset-owned presentation metadata to travel separately.
+    if display_name is None:
+        display_name = name
     is_index = name in var.dims
     marker = "*" if is_index else " "
     if is_index:
@@ -320,11 +323,13 @@ def summarize_coord(name: Hashable, var, col_width: int):
         if coord.level_names is not None:
             return "\n".join(
                 [
-                    _summarize_coord_multiindex(coord, col_width, marker),
+                    _summarize_coord_multiindex(
+                        coord, col_width, marker, display_name=display_name
+                    ),
                     _summarize_coord_levels(coord, col_width),
                 ]
             )
-    return summarize_variable(name, var.variable, col_width, marker)
+    return summarize_variable(display_name, var.variable, col_width, marker)
 
 
 def summarize_attr(key, value, col_width=None):
@@ -386,14 +391,14 @@ attrs_repr = functools.partial(
 )
 
 
-def coords_repr(coords, col_width=None):
+def coords_repr(coords, col_width=None, summarizer=summarize_coord):
     # GUID: XARRAY-001 architecture boundary: keep this shared formatter free of
     # Dataset-only coordinate-label policy. Dataset overview label decoration is
     # owned by dataset_repr and enters through its call seam below.
     if col_width is None:
         col_width = _calculate_col_width(_get_col_items(coords))
     return _mapping_repr(
-        coords, title="Coordinates", summarizer=summarize_coord, col_width=col_width
+        coords, title="Coordinates", summarizer=summarizer, col_width=col_width
     )
 
 
@@ -501,32 +506,37 @@ def array_repr(arr):
 def dataset_repr(ds):
     summary = ["<xarray.{}>".format(type(ds).__name__)]
 
-    # GUID: XARRAY-001 -- Dataset overview coordinate-unit flow.
-    # INPUT: the Dataset coordinates, in their existing iteration order.
-    # FOR EACH coordinate, independently:
-    #   READ its `units` metadata without deriving or supplying a missing value.
-    #   IF `units` is present and can be rendered as display text:
-    #     COMPOSE a display label with that text adjacent to the coordinate name.
-    #   ELSE:
-    #     RETAIN the coordinate name unchanged and emit no inferred unit text.
-    #   HAND OFF the display label to the existing coordinate-summary path while
-    #   preserving index/MultiIndex handling, dimensions, dtype, values, and order.
-    # COLLECT every coordinate summary so each unit-bearing coordinate is treated.
-    # FAILURE PATH: non-displayable unit metadata follows the unchanged-name branch;
-    # the coordinate itself remains present in the Dataset Coordinates section.
-    # OUTPUT: the Dataset overview Coordinates section with applicable unit text.
+    # GUID: XARRAY-001: Dataset-only coordinate unit labels.
+    def coord_display_name(name, var):
+        units = var.attrs.get("units")
+        if units is None:
+            return name
+        try:
+            unit_text = str(units)
+        except Exception:
+            return name
+        unit_text = unit_text.replace("\t", "\\t").replace("\n", "\\n")
+        return f"{name} [{unit_text}]" if unit_text else name
+
     col_width = _calculate_col_width(_get_col_items(ds.variables))
+    coord_display_names = [coord_display_name(k, v) for k, v in ds.coords.items()]
+    col_width = max(col_width, _calculate_col_width(coord_display_names))
 
     dims_start = pretty_print("Dimensions:", col_width)
     summary.append("{}({})".format(dims_start, dim_summary(ds)))
 
     if ds.coords:
-        # GUID: XARRAY-001 integration seam: dataset_repr owns any Dataset-only
-        # coordinate display-label provider; coords_repr remains the downstream
-        # layout dependency so standalone Coordinates representations do not
-        # acquire this policy. Keep raw coordinate identities distinct from the
-        # independently derived labels passed toward summarize_coord.
-        summary.append(coords_repr(ds.coords, col_width=col_width))
+        def summarize_coord_with_units(name, var, col_width):
+            display_name = coord_display_name(name, var)
+            return summarize_coord(name, var, col_width, display_name=display_name)
+
+        summary.append(
+            coords_repr(
+                ds.coords,
+                col_width=col_width,
+                summarizer=summarize_coord_with_units,
+            )
+        )
 
     unindexed_dims_str = unindexed_dims_repr(ds.dims, ds.coords)
     if unindexed_dims_str:
