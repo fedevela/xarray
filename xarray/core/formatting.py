@@ -542,6 +542,27 @@ def dataset_repr(ds):
     if unindexed_dims_str:
         summary.append(unindexed_dims_str)
 
+    # GUID: XARRAY-002 logic obligation for
+    # test_xarray_002_dataset_overview_data_variable_with_displayable_units_shows_units_adjacent_to_name
+    # and
+    # test_xarray_002_dataset_overview_multiple_data_variables_with_displayable_units_each_show_units_adjacent_to_name:
+    #
+    # PSEUDOCODE — build the Dataset overview's Data variables section:
+    #   FOR EACH (name, variable) IN ds.data_vars, preserving overview order:
+    #       units := READ variable metadata attribute "units" without inventing a default
+    #       IF units is absent:
+    #           display_name := name
+    #       ELSE:
+    #           TRY unit_text := CONVERT units to safe, single-line display text
+    #           IF conversion fails OR unit_text is not displayable:
+    #               display_name := name
+    #           ELSE:
+    #               display_name := PLACE unit_text adjacent to name
+    #       INCLUDE display_name when determining the section's name-column width
+    #       SUMMARIZE the original variable under display_name
+    #       APPEND that variable's summary to the Data variables section
+    #   RETURN every appended summary; one variable's missing or unusable units
+    #   MUST NOT suppress or alter the summaries of other variables.
     summary.append(data_vars_repr(ds.data_vars, col_width=col_width))
 
     if ds.attrs:
