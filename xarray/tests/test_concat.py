@@ -51,15 +51,33 @@ def test_concat_compat():
 class TestRelaxedDatasetConcatContract:
     def test_xconcat_001_unequal_data_variable_sets_are_accepted_unchanged(self):
         """GUID: XCONCAT-001; unequal inputs transition to successful concat."""
-        assert True
+        left = Dataset({"left": 1})
+        right = Dataset({"right": 2})
+        original_left = left.copy(deep=True)
+        original_right = right.copy(deep=True)
+
+        concat([left, right], dim="source", data_vars="different")
+
+        assert_identical(left, original_left)
+        assert_identical(right, original_right)
 
     def test_xconcat_002_distinct_data_variables_form_exact_result_union(self):
         """GUID: XCONCAT-002; overlapping and distinct inputs form their union."""
-        assert True
+        left = Dataset({"shared": 1, "left": 2})
+        right = Dataset({"shared": 3, "right": 4})
+
+        actual = concat([left, right], dim="source")
+
+        assert set(actual.data_vars) == {"shared", "left", "right"}
 
     def test_xconcat_002_repeated_data_variable_name_appears_once_in_result(self):
         """GUID: XCONCAT-002; repeated input names transition to one result name."""
-        assert True
+        datasets = [Dataset({"shared": value}) for value in [1, 2, 3]]
+
+        actual = concat(datasets, dim="source")
+
+        assert list(actual.data_vars).count("shared") == 1
+        assert_array_equal(actual["shared"], [1, 2, 3])
 
 
 class TestConcatDataset:
@@ -204,10 +222,9 @@ class TestConcatDataset:
             concat([data0, data1], "dim1", compat="identical")
         assert_identical(data, concat([data0, data1], "dim1", compat="equals"))
 
-        with raises_regex(ValueError, "present in some datasets"):
-            data0, data1 = deepcopy(split_data)
-            data1["foo"] = ("bar", np.random.randn(10))
-            concat([data0, data1], "dim1")
+        data0, data1 = deepcopy(split_data)
+        data1["foo"] = ("bar", np.random.randn(10))
+        assert "foo" in concat([data0, data1], "dim1").data_vars
 
         with raises_regex(ValueError, "compat.* invalid"):
             concat(split_data, "dim1", compat="foobar")

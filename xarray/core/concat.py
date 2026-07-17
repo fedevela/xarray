@@ -189,6 +189,14 @@ def _calc_concat_over(datasets, dim, dim_names, data_vars, coords, compat):
                 # all nonindexes that are not the same in each dataset
                 for k in getattr(datasets[0], subset):
                     if k not in concat_over:
+                        # GUID: XCONCAT-001 -- missing data variables are
+                        # concatenated by the relaxed path in _dataset_concat;
+                        # absence is not a value-comparison failure.
+                        if subset == "data_vars" and any(
+                            k not in ds.data_vars for ds in datasets[1:]
+                        ):
+                            concat_over.add(k)
+                            continue
                         # Compare the variable of all datasets vs. the one
                         # of the first dataset. Perform the minimum amount of
                         # loads in order to avoid multiple loads from disk
@@ -340,6 +348,16 @@ def _dataset_concat(
         datasets, dim, dim_names, data_vars, coords, compat
     )
 
+    # GUID: XCONCAT-001, XCONCAT-002 -- a data variable which is absent from
+    # any input cannot be merged, so combine it along the concatenation
+    # dimension instead.  Missing slots are supplied below without modifying
+    # any of the input datasets.
+    missing_data_names = set()
+    for name in data_names:
+        if any(name not in ds.data_vars for ds in datasets):
+            missing_data_names.add(name)
+            concat_over.add(name)
+
     # determine which variables to merge, and then merge them according to compat
     variables_to_merge = (coord_names | data_names) - concat_over - dim_names
 
@@ -390,14 +408,35 @@ def _dataset_concat(
                 var = var.set_dims(common_dims, common_shape)
             yield var
 
-    # stack up each variable to fill-out the dataset (in order)
+    # stack up each variable to fill-out the dataset (in order).  Build the
+    # ordered union here so variables absent from the first dataset are kept.
     # n.b. this loop preserves variable order, needed for groupby.
-    for k in datasets[0].variables:
+    concat_var_names = []
+    seen = set()
+    for i, ds in enumerate(datasets):
+        for k in ds.variables:
+            if k in concat_over and k not in seen and (i == 0 or k in data_names):
+                concat_var_names.append(k)
+                seen.add(k)
+
+    for k in concat_var_names:
         if k in concat_over:
-            try:
-                vars = ensure_common_dims([ds.variables[k] for ds in datasets])
-            except KeyError:
-                raise ValueError("%r is not present in all datasets." % k)
+            if k in missing_data_names:
+                sample = next(ds.variables[k] for ds in datasets if k in ds.variables)
+                missing_fill_value = fill_value
+                if missing_fill_value is dtypes.NA:
+                    missing_fill_value = dtypes.get_fill_value(sample.dtype)
+                missing_var = Variable(
+                    (), missing_fill_value, attrs=sample.attrs, encoding=sample.encoding
+                )
+                vars = ensure_common_dims(
+                    [ds.variables.get(k, missing_var) for ds in datasets]
+                )
+            else:
+                try:
+                    vars = ensure_common_dims([ds.variables[k] for ds in datasets])
+                except KeyError:
+                    raise ValueError("%r is not present in all datasets." % k)
             combined = concat_vars(vars, dim, positions)
             assert isinstance(combined, Variable)
             result_vars[k] = combined
