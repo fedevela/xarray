@@ -474,6 +474,8 @@ def test_xarray_004_datetime_grouping_key_repr_preserves_other_content():
 
 def test_xarray_005_affected_dataset_groupby_doctest_exact_comparison_has_no_trailing_whitespace():
     """XARRAY-005: exact doctest output is whitespace-free."""
+    # ARCHITECTURE — XARRAY-005: affected source docstrings own their literal
+    # expected output; GroupBy.__repr__ remains the sole producer-side boundary.
     # PSEUDOCODE — XARRAY-005 affected DatasetGroupBy doctest expectation:
     # FOR EACH affected doctest that renders a DatasetGroupBy,
     # DEFINE the expected output as the exact established two-line representation,
@@ -488,6 +490,8 @@ def test_xarray_005_affected_dataset_groupby_doctest_exact_comparison_has_no_tra
 
 def test_xarray_005_affected_dataset_groupby_doctests_pass_without_suppressing_validation():
     """XARRAY-005: exact comparison and whitespace validation remain enabled."""
+    # ARCHITECTURE — XARRAY-005: pytest's existing doctest collection and
+    # comparison path is the integration seam; no local adapter or option belongs here.
     # PSEUDOCODE — XARRAY-005 validation handoff:
     # DISCOVER the affected doctests through the existing doctest collection path.
     # EXECUTE them with the existing exact-output comparison and whitespace checks.
@@ -500,6 +504,8 @@ def test_xarray_005_affected_dataset_groupby_doctests_pass_without_suppressing_v
 
 def test_xarray_006_changed_lines_end_without_whitespace():
     """XARRAY-006: every source, test, documentation, and repr line is clean."""
+    # ARCHITECTURE — XARRAY-006: the changed-file validation boundary owns this
+    # cross-artifact contract; production representation code gains no validator.
     # PSEUDOCODE — XARRAY-006 changed-line whitespace gate:
     # INPUT only lines introduced or updated by this change across source, tests,
     # documentation, docstrings, and representation text.
