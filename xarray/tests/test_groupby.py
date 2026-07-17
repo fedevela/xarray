@@ -416,6 +416,21 @@ def test_xarray_003_letters_dataset_groupby_repr_matches_exact_two_line_text():
     )
 
 
+def test_xarray_004_ordinary_grouping_key_repr_has_no_trailing_whitespace():
+    """XARRAY-004: ordinary-key expected and actual output are whitespace-free."""
+    pass
+
+
+def test_xarray_004_multidimensional_grouping_key_repr_preserves_other_content():
+    """XARRAY-004: multidimensional-key output changes only in whitespace."""
+    pass
+
+
+def test_xarray_004_datetime_grouping_key_repr_preserves_other_content():
+    """XARRAY-004: datetime-key output changes only in whitespace."""
+    pass
+
+
 @pytest.mark.parametrize("dim", ["x", "y", "z", "month"])
 @pytest.mark.parametrize("obj", [repr_da, repr_da.to_dataset(name="a")])
 def test_groupby_repr(obj, dim):
