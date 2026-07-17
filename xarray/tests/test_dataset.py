@@ -3184,7 +3184,17 @@ class TestDataset:
         #   because successful roundtrip completion is required.
         # THEN verify assert_identical(reconstructed, source)
         #   using xarray's standard identity comparison.
-        assert True
+        source = xr.Dataset(
+            {
+                "temperature": ("sample", [18, 20]),
+                "pressure": ("sample", [1012, 1013]),
+            }
+        )
+
+        stacked = source.to_stacked_array("features", sample_dims=["sample"])
+        reconstructed = stacked.to_unstacked_dataset("features")
+
+        assert_identical(reconstructed, source)
 
     def test_update(self):
         data = create_test_data(seed=0)
