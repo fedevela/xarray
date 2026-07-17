@@ -544,6 +544,42 @@ def dataset_repr(ds):
     #   summarizer, preserving mapping order and adjacency in the emitted line.
     #   NEVER reuse, shift, or attach one pair's units_metadata to another pair.
 
+    # PSEUDOCODE -- GUID: XARRAY-006
+    # INITIALIZE the Dataset overview with its type header and dimension summary.
+    # IF the coordinate mapping is nonempty:
+    #   APPEND one Coordinates section by iterating only coordinate owner pairs.
+    # APPEND any unindexed-dimension notice after coordinates and before data variables.
+    # APPEND one Data variables section by iterating only data-variable owner pairs,
+    # including the existing empty-section representation when that mapping is empty.
+    # FOR EACH section handoff, preserve the source mapping's order and pass each
+    # unchanged variable with only its own derived display label; unit-label failure
+    # MUST fall back to the raw owner name without changing section membership.
+
+    # PSEUDOCODE -- GUID: XARRAY-007
+    # READ the dimension summary from the Dataset's authoritative dimension sizes.
+    # FOR EACH coordinate and data-variable owner pair:
+    #   DERIVE presentation metadata without mutating or substituting the variable.
+    #   HAND OFF the unchanged variable so the existing summarizer reads its own
+    #   dimensions and shape, dtype, and data values from that same variable.
+    #   CALCULATE the data-abbreviation budget only after the label, dimensions,
+    #   shape, and dtype fields have been accounted for.
+    #   IF the data exceeds that budget, abbreviate through the existing data path;
+    #   DO NOT alter factual fields or source values to make the line fit.
+    # IF unit-label derivation fails, use the raw owner name and continue producing
+    # the same dimension summary and variable facts from their authoritative inputs.
+
+    # PSEUDOCODE -- GUID: XARRAY-008
+    # DERIVE every owner-specific display label before section rendering.
+    # CALCULATE a shared label-column width that accommodates the longest derived
+    # coordinate or data-variable label, independent of unit-text length.
+    # FOR EACH original (owner_name, owner_variable) pair in mapping order:
+    #   EMIT its derived label and remaining representation fields in one summary
+    #   handoff so no field can migrate to, or be mistaken for, another owner.
+    #   PRESERVE explicit field boundaries; delegate constrained data width to the
+    #   existing abbreviation path rather than truncating dimensions, shape, or dtype.
+    # IF a label cannot be displayed, fall back for that owner only and retain the
+    # shared-width calculation and all remaining owner-associated fields.
+
     # GUID: XARRAY-003, XARRAY-004: shared Dataset-only unit-label derivation.
     def unit_display_name(name, var):
         units = var.attrs.get("units")
