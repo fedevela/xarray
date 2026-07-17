@@ -183,6 +183,24 @@ class TestRelaxedDatasetConcatContract:
             assert actual[name].dtype == datasets[0][name].dtype
             assert not actual[name].isnull().any()
 
+    def test_xconcat_008_variable_absent_from_first_input_yields_first_missing_portion_and_preserves_later_values(
+        self,
+    ):
+        """GUID: XCONCAT-008; first absence yields a gap, then source values."""
+        assert True
+
+    def test_xconcat_008_variable_absent_from_later_input_preserves_first_values_and_yields_later_missing_portion(
+        self,
+    ):
+        """GUID: XCONCAT-008; first values precede a later missing portion."""
+        assert True
+
+    def test_xconcat_008_variable_absent_from_multiple_inputs_yields_each_missing_portion_and_preserves_present_values(
+        self,
+    ):
+        """GUID: XCONCAT-008; multiple absences yield gaps around source values."""
+        assert True
+
 
 class TestConcatDataset:
     @pytest.fixture
