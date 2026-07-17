@@ -423,7 +423,28 @@ class TestDataset:
         Coordinates section and data variables remain in the Data variables
         section.
         """
-        assert True
+        ds = Dataset(
+            data_vars={
+                "temperature": ("station", [280.0, 281.0], {"units": "K"})
+            },
+            coords={
+                "station": ("station", [10, 20], {"units": "station_id"}),
+                "latitude": ("station", [40.0, 41.0], {"units": "degrees_north"}),
+            },
+        )
+
+        lines = repr(ds).splitlines()
+        coordinates_start = lines.index("Coordinates:")
+        data_variables_start = lines.index("Data variables:")
+        coordinate_lines = lines[coordinates_start + 1 : data_variables_start]
+        data_variable_lines = lines[data_variables_start + 1 :]
+
+        assert any("station [station_id]" in line for line in coordinate_lines)
+        assert any("latitude [degrees_north]" in line for line in coordinate_lines)
+        assert not any("temperature [K]" in line for line in coordinate_lines)
+        assert any("temperature [K]" in line for line in data_variable_lines)
+        assert not any("station [station_id]" in line for line in data_variable_lines)
+        assert not any("latitude [degrees_north]" in line for line in data_variable_lines)
 
     def test_xarray_007_dataset_overview_with_units_keeps_dimension_summary_variable_dimensions_shapes_dtypes_and_abbreviated_data_accurate(
         self,
@@ -435,7 +456,41 @@ class TestDataset:
         dimension summary and every variable's dimensions, shape, dtype, and
         abbreviated data remain accurate.
         """
-        assert True
+        ds = Dataset(
+            data_vars={
+                "measurement": (
+                    ("station", "sample"),
+                    np.arange(20, dtype=np.int16).reshape(2, 10),
+                    {"units": "counts"},
+                )
+            },
+            coords={
+                "station": ("station", np.array([101, 202], dtype=np.int32)),
+                "sample": (
+                    "sample",
+                    np.arange(10, dtype=np.float32),
+                    {"units": "seconds"},
+                ),
+            },
+        )
+
+        with set_options(display_width=80):
+            lines = repr(ds).splitlines()
+
+        dimensions_line = next(line for line in lines if line.startswith("Dimensions:"))
+        station_line = next(line for line in lines if "* station " in line)
+        sample_line = next(line for line in lines if "* sample [seconds]" in line)
+        measurement_line = next(line for line in lines if "measurement [counts]" in line)
+
+        assert "station: 2" in dimensions_line
+        assert "sample: 10" in dimensions_line
+        assert "(station) int32 101 202" in station_line
+        assert "(sample) float32 0.0" in sample_line
+        assert "9.0" in sample_line
+        assert "(station, sample) int16" in measurement_line
+        assert "0 1" in measurement_line
+        assert "..." in measurement_line
+        assert "18 19" in measurement_line
 
     def test_xarray_008_dataset_overview_with_differing_length_units_keeps_remaining_fields_readable_and_associated_with_each_variable(
         self,
@@ -447,7 +502,40 @@ class TestDataset:
         variable's remaining representation fields remain readable and
         associated with that variable without exact spacing or wording.
         """
-        assert True
+        ds = Dataset(
+            data_vars={
+                "short": ("sample", [1.5, 2.5], {"units": "m"}),
+                "long": (
+                    "sample",
+                    np.array([3, 4], dtype=np.int16),
+                    {"units": "kilometres_per_observation_interval"},
+                ),
+            },
+            coords={
+                "sample": ("sample", [10, 20], {"units": "s"}),
+                "offset": (
+                    "sample",
+                    np.array([5, 6], dtype=np.int32),
+                    {"units": "metres_from_reference_point"},
+                ),
+            },
+        )
+
+        lines = repr(ds).splitlines()
+        expected_fields = {
+            "sample [s]": ("(sample) int64", "10 20"),
+            "offset [metres_from_reference_point]": ("(sample) int32", "5 6"),
+            "short [m]": ("(sample) float64", "1.5 2.5"),
+            "long [kilometres_per_observation_interval]": (
+                "(sample) int16",
+                "3 4",
+            ),
+        }
+
+        for label, (dimensions_and_dtype, data) in expected_fields.items():
+            owner_line = next(line for line in lines if label in line)
+            assert dimensions_and_dtype in owner_line
+            assert data in owner_line
 
     def test_repr(self):
         data = create_test_data(seed=123)
