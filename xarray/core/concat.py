@@ -421,6 +421,30 @@ def _dataset_concat(
 
     for k in concat_var_names:
         if k in concat_over:
+            # PSEUDOCODE CONTRACT — GUID: XCONCAT-003, GUID: XCONCAT-004,
+            # GUID: XCONCAT-005
+            # INPUT: variable name `k`, datasets in caller-supplied order, each
+            #     dataset's contribution length, requested positions, and fill policy.
+            # LET contributions := one slot per input dataset, in input order.
+            # IF `k` is absent from any input slot:                         [XCONCAT-003]
+            #     derive the applicable missing representation from the explicit
+            #     fill policy, or from a present occurrence's dtype when unspecified;
+            #     FOR EACH slot IN contributions:
+            #         IF the slot contains `k`: retain that occurrence unchanged and
+            #             associate it with the slot's result extent;              [XCONCAT-004]
+            #         ELSE: associate a missing-valued occurrence with the complete
+            #             result extent contributed by that slot;                  [XCONCAT-003]
+            # ELSE: retain every occurrence and its input-order slot association;
+            #     partial presence of other names does not alter this sequence.    [XCONCAT-005]
+            # NORMALIZE occurrence dimensions without changing present values, then
+            #     HAND OFF the ordered occurrences and requested positions to the
+            #     established variable concatenation operation.                    [XCONCAT-004,
+            #                                                                      XCONCAT-005]
+            # OUTPUT: present values and missing extents alternate exactly as their
+            #     source and absent input slots alternate.                          [XCONCAT-003,
+            #                                                                      XCONCAT-004]
+            # FAILURE: propagate invalid dimension, position, dtype/fill, or variable
+            #     concatenation failures; a missing occurrence alone is not failure.
             if k in missing_data_names:
                 sample = next(ds.variables[k] for ds in datasets if k in ds.variables)
                 missing_fill_value = fill_value
