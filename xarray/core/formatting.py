@@ -261,6 +261,8 @@ def inline_variable_array_repr(var, max_width):
         return inline_dask_repr(var.data)
     elif isinstance(var._data, sparse_array_type):
         return inline_sparse_repr(var.data)
+    elif hasattr(var._data, "_repr_inline_"):
+        return var._data._repr_inline_(max_width)
     elif hasattr(var._data, "__array_function__"):
         return maybe_truncate(repr(var._data).replace("\n", " "), max_width)
     else:
@@ -291,8 +293,10 @@ def summarize_variable(
     return front_str + values_str
 
 
-def _summarize_coord_multiindex(coord, col_width, marker):
-    first_col = pretty_print(f"  {marker} {coord.name} ", col_width)
+def _summarize_coord_multiindex(coord, col_width, marker, display_name=None):
+    if display_name is None:
+        display_name = coord.name
+    first_col = pretty_print(f"  {marker} {display_name} ", col_width)
     return "{}({}) MultiIndex".format(first_col, str(coord.dims[0]))
 
 
@@ -309,7 +313,9 @@ def summarize_datavar(name, var, col_width):
     return summarize_variable(name, var.variable, col_width)
 
 
-def summarize_coord(name: Hashable, var, col_width: int):
+def summarize_coord(name: Hashable, var, col_width: int, display_name=None):
+    if display_name is None:
+        display_name = name
     is_index = name in var.dims
     marker = "*" if is_index else " "
     if is_index:
@@ -317,11 +323,13 @@ def summarize_coord(name: Hashable, var, col_width: int):
         if coord.level_names is not None:
             return "\n".join(
                 [
-                    _summarize_coord_multiindex(coord, col_width, marker),
+                    _summarize_coord_multiindex(
+                        coord, col_width, marker, display_name=display_name
+                    ),
                     _summarize_coord_levels(coord, col_width),
                 ]
             )
-    return summarize_variable(name, var.variable, col_width, marker)
+    return summarize_variable(display_name, var.variable, col_width, marker)
 
 
 def summarize_attr(key, value, col_width=None):
@@ -383,11 +391,11 @@ attrs_repr = functools.partial(
 )
 
 
-def coords_repr(coords, col_width=None):
+def coords_repr(coords, col_width=None, summarizer=summarize_coord):
     if col_width is None:
         col_width = _calculate_col_width(_get_col_items(coords))
     return _mapping_repr(
-        coords, title="Coordinates", summarizer=summarize_coord, col_width=col_width
+        coords, title="Coordinates", summarizer=summarizer, col_width=col_width
     )
 
 
@@ -495,19 +503,54 @@ def array_repr(arr):
 def dataset_repr(ds):
     summary = ["<xarray.{}>".format(type(ds).__name__)]
 
+    def unit_display_name(name, var):
+        units = var.attrs.get("units")
+        if units is None:
+            return name
+        try:
+            unit_text = str(units)
+        except Exception:
+            return name
+        unit_text = unit_text.replace("\t", "\\t").replace("\n", "\\n")
+        return f"{name} [{unit_text}]" if unit_text else name
+
     col_width = _calculate_col_width(_get_col_items(ds.variables))
+    coord_display_names = [unit_display_name(k, v) for k, v in ds.coords.items()]
+    col_width = max(col_width, _calculate_col_width(coord_display_names))
+    datavar_display_names = [unit_display_name(k, v) for k, v in ds.data_vars.items()]
+    col_width = max(col_width, _calculate_col_width(datavar_display_names))
 
     dims_start = pretty_print("Dimensions:", col_width)
     summary.append("{}({})".format(dims_start, dim_summary(ds)))
 
     if ds.coords:
-        summary.append(coords_repr(ds.coords, col_width=col_width))
+        def summarize_coord_with_units(name, var, col_width):
+            display_name = unit_display_name(name, var)
+            return summarize_coord(name, var, col_width, display_name=display_name)
+
+        summary.append(
+            coords_repr(
+                ds.coords,
+                col_width=col_width,
+                summarizer=summarize_coord_with_units,
+            )
+        )
 
     unindexed_dims_str = unindexed_dims_repr(ds.dims, ds.coords)
     if unindexed_dims_str:
         summary.append(unindexed_dims_str)
 
-    summary.append(data_vars_repr(ds.data_vars, col_width=col_width))
+    def summarize_datavar_with_units(name, var, col_width):
+        display_name = unit_display_name(name, var)
+        return summarize_datavar(display_name, var, col_width)
+
+    summary.append(
+        data_vars_repr(
+            ds.data_vars,
+            col_width=col_width,
+            summarizer=summarize_datavar_with_units,
+        )
+    )
 
     if ds.attrs:
         summary.append(attrs_repr(ds.attrs))

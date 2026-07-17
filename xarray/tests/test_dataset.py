@@ -189,6 +189,424 @@ class InaccessibleVariableDataStore(backends.InMemoryDataStore):
 
 
 class TestDataset:
+    def test_xarray_002_dataset_overview_data_variable_with_displayable_units_shows_units_adjacent_to_name(
+        self,
+    ):
+        """A Dataset data variable displays its units. GUID: XARRAY-002."""
+        ds = Dataset(
+            data_vars={"temperature": ("time", [18.0, 19.5], {"units": "degC"})}
+        )
+
+        data_variable_line = next(
+            line for line in repr(ds).splitlines() if "temperature" in line
+        )
+
+        assert (
+            data_variable_line.index("temperature")
+            < data_variable_line.index("degC")
+            < data_variable_line.index("(time)")
+        )
+
+    def test_xarray_002_dataset_overview_multiple_data_variables_with_displayable_units_each_show_units_adjacent_to_name(
+        self,
+    ):
+        """Each unit-bearing Dataset data variable displays its units. GUID: XARRAY-002."""
+        ds = Dataset(
+            data_vars={
+                "temperature": ("time", [18.0, 19.5], {"units": "degC"}),
+                "precipitation": ("time", [0.0, 2.5], {"units": "mm"}),
+            }
+        )
+
+        data_variable_lines = repr(ds).splitlines()
+        temperature_line = next(
+            line for line in data_variable_lines if "temperature" in line
+        )
+        precipitation_line = next(
+            line for line in data_variable_lines if "precipitation" in line
+        )
+
+        assert temperature_line.index("temperature") < temperature_line.index("degC")
+        assert precipitation_line.index("precipitation") < precipitation_line.index(
+            "mm"
+        )
+
+    def test_xarray_001_dataset_overview_coordinate_with_displayable_units_shows_units_adjacent_to_name(
+        self,
+    ):
+        """A Dataset coordinate displays its units. GUID: XARRAY-001."""
+        ds = Dataset(coords={"distance": ("distance", [0, 1], {"units": "km"})})
+
+        coordinate_line = next(
+            line for line in repr(ds).splitlines() if "* distance" in line
+        )
+
+        assert (
+            coordinate_line.index("distance")
+            < coordinate_line.index("km")
+            < coordinate_line.index("(distance)")
+        )
+
+    def test_xarray_001_dataset_overview_multiple_coordinates_with_displayable_units_each_show_units_adjacent_to_name(
+        self,
+    ):
+        """Each Dataset coordinate displays its units. GUID: XARRAY-001."""
+        ds = Dataset(
+            coords={
+                "latitude": ("latitude", [0, 1], {"units": "degrees_north"}),
+                "longitude": ("longitude", [2, 3], {"units": "degrees_east"}),
+            }
+        )
+
+        coordinate_lines = repr(ds).splitlines()
+        latitude_line = next(line for line in coordinate_lines if "(latitude)" in line)
+        longitude_line = next(
+            line for line in coordinate_lines if "(longitude)" in line
+        )
+
+        assert latitude_line.index("latitude") < latitude_line.index("degrees_north")
+        assert longitude_line.index("longitude") < longitude_line.index("degrees_east")
+
+    def test_xarray_003_dataset_overview_coordinate_and_data_variable_without_displayable_units_keep_name_only_labels_and_render_without_error(
+        self,
+    ):
+        """GUID: XARRAY-003.
+
+        Given a coordinate and data variable without displayable units, when the
+        Dataset overview is produced, both keep name-only labels and rendering
+        completes without error.
+        """
+        ds = Dataset(
+            data_vars={"measurement": ("sample", [1.0, 2.0], {"units": None})},
+            coords={"sample": [0, 1]},
+        )
+
+        overview = repr(ds)
+        coordinate_line = next(
+            line for line in overview.splitlines() if "* sample" in line
+        )
+        data_variable_line = next(
+            line for line in overview.splitlines() if "measurement" in line
+        )
+
+        assert "sample [" not in coordinate_line
+        assert "measurement [" not in data_variable_line
+
+    def test_xarray_003_dataset_overview_mixed_unit_bearing_and_unitless_entries_annotates_only_unit_bearing_owners(
+        self,
+    ):
+        """GUID: XARRAY-003.
+
+        Given unit-bearing and unitless coordinates and data variables, when the
+        Dataset overview is produced, only unit-bearing entries are annotated and
+        unitless entries keep name-only labels.
+        """
+        ds = Dataset(
+            data_vars={
+                "speed": ("distance", [1.0, 2.0], {"units": "m/s"}),
+                "count": ("distance", [3, 4], {"units": ""}),
+            },
+            coords={
+                "distance": ("distance", [0, 1], {"units": "m"}),
+                "sequence": ("distance", [10, 11]),
+            },
+        )
+
+        lines = repr(ds).splitlines()
+        distance_line = next(line for line in lines if "* distance" in line)
+        sequence_line = next(line for line in lines if "sequence" in line)
+        speed_line = next(line for line in lines if "speed" in line)
+        count_line = next(line for line in lines if "count" in line)
+
+        assert "distance [m]" in distance_line
+        assert "speed [m/s]" in speed_line
+        assert "sequence [" not in sequence_line
+        assert "count [" not in count_line
+
+    def test_xarray_004_dataset_overview_unnormalized_coordinate_and_data_variable_units_reproduce_metadata_values_faithfully(
+        self,
+    ):
+        """GUID: XARRAY-004.
+
+        Given coordinate and data-variable units text that has not been normalized
+        or interpreted, when the Dataset overview is produced, the displayed text
+        reproduces each metadata value without validation, parsing, normalization,
+        interpretation, or conversion.
+        """
+        coordinate_units = " Meters PER weird_second^2 "
+        data_variable_units = "deg C?! / raw-unit"
+        ds = Dataset(
+            data_vars={
+                "acceleration": (
+                    "position",
+                    [1.0, 2.0],
+                    {"units": data_variable_units},
+                )
+            },
+            coords={
+                "position": (
+                    "position",
+                    [0, 1],
+                    {"units": coordinate_units},
+                )
+            },
+        )
+
+        lines = repr(ds).splitlines()
+        coordinate_line = next(line for line in lines if "* position" in line)
+        data_variable_line = next(line for line in lines if "acceleration" in line)
+
+        assert f"position [{coordinate_units}]" in coordinate_line
+        assert f"acceleration [{data_variable_units}]" in data_variable_line
+
+    def test_xarray_005_dataset_overview_distinct_coordinate_and_data_variable_units_remain_associated_with_their_owners(
+        self,
+    ):
+        """GUID: XARRAY-005.
+
+        Given multiple coordinates and data variables with distinct units, when
+        the Dataset overview is produced, each annotation remains adjacent to its
+        owner and no unit is attributed to another entry.
+        """
+        owners_and_units = {
+            "latitude": "degrees_north",
+            "longitude": "degrees_east",
+            "temperature": "kelvin_owner_only",
+            "precipitation": "millimetres_owner_only",
+        }
+        ds = Dataset(
+            data_vars={
+                "temperature": (
+                    "latitude",
+                    [280.0, 281.0],
+                    {"units": owners_and_units["temperature"]},
+                ),
+                "precipitation": (
+                    "latitude",
+                    [0.0, 1.0],
+                    {"units": owners_and_units["precipitation"]},
+                ),
+            },
+            coords={
+                "latitude": (
+                    "latitude",
+                    [0, 1],
+                    {"units": owners_and_units["latitude"]},
+                ),
+                "longitude": (
+                    "latitude",
+                    [2, 3],
+                    {"units": owners_and_units["longitude"]},
+                ),
+            },
+        )
+
+        lines = repr(ds).splitlines()
+        owner_lines = {
+            owner: next(line for line in lines if f"{owner} [" in line)
+            for owner in owners_and_units
+        }
+
+        for owner, units in owners_and_units.items():
+            assert f"{owner} [{units}]" in owner_lines[owner]
+            for other_units in owners_and_units.values():
+                if other_units != units:
+                    assert other_units not in owner_lines[owner]
+
+    def test_xarray_006_dataset_overview_with_units_keeps_coordinates_and_data_variables_in_their_distinct_sections(
+        self,
+    ):
+        """GUID: XARRAY-006.
+
+        Given a Dataset containing coordinates and data variables, when its
+        overview is produced with unit annotations, coordinates remain in the
+        Coordinates section and data variables remain in the Data variables
+        section.
+        """
+        ds = Dataset(
+            data_vars={
+                "temperature": ("station", [280.0, 281.0], {"units": "K"})
+            },
+            coords={
+                "station": ("station", [10, 20], {"units": "station_id"}),
+                "latitude": ("station", [40.0, 41.0], {"units": "degrees_north"}),
+            },
+        )
+
+        lines = repr(ds).splitlines()
+        coordinates_start = lines.index("Coordinates:")
+        data_variables_start = lines.index("Data variables:")
+        coordinate_lines = lines[coordinates_start + 1 : data_variables_start]
+        data_variable_lines = lines[data_variables_start + 1 :]
+
+        assert any("station [station_id]" in line for line in coordinate_lines)
+        assert any("latitude [degrees_north]" in line for line in coordinate_lines)
+        assert not any("temperature [K]" in line for line in coordinate_lines)
+        assert any("temperature [K]" in line for line in data_variable_lines)
+        assert not any("station [station_id]" in line for line in data_variable_lines)
+        assert not any("latitude [degrees_north]" in line for line in data_variable_lines)
+
+    def test_xarray_007_dataset_overview_with_units_keeps_dimension_summary_variable_dimensions_shapes_dtypes_and_abbreviated_data_accurate(
+        self,
+    ):
+        """GUID: XARRAY-007.
+
+        Given known Dataset dimensions, variable dimensions, shapes, dtypes,
+        and values, when its overview is produced with unit annotations, the
+        dimension summary and every variable's dimensions, shape, dtype, and
+        abbreviated data remain accurate.
+        """
+        ds = Dataset(
+            data_vars={
+                "measurement": (
+                    ("station", "sample"),
+                    np.arange(20, dtype=np.int16).reshape(2, 10),
+                    {"units": "counts"},
+                )
+            },
+            coords={
+                "station": ("station", np.array([101, 202], dtype=np.int32)),
+                "sample": (
+                    "sample",
+                    np.arange(10, dtype=np.float32),
+                    {"units": "seconds"},
+                ),
+            },
+        )
+
+        with set_options(display_width=80):
+            lines = repr(ds).splitlines()
+
+        dimensions_line = next(line for line in lines if line.startswith("Dimensions:"))
+        station_line = next(line for line in lines if "* station " in line)
+        sample_line = next(line for line in lines if "* sample [seconds]" in line)
+        measurement_line = next(line for line in lines if "measurement [counts]" in line)
+
+        assert "station: 2" in dimensions_line
+        assert "sample: 10" in dimensions_line
+        assert "(station) int32 101 202" in station_line
+        assert "(sample) float32 0.0" in sample_line
+        assert "9.0" in sample_line
+        assert "(station, sample) int16" in measurement_line
+        assert "0 1" in measurement_line
+        assert "..." in measurement_line
+        assert "18 19" in measurement_line
+
+    def test_xarray_008_dataset_overview_with_differing_length_units_keeps_remaining_fields_readable_and_associated_with_each_variable(
+        self,
+    ):
+        """GUID: XARRAY-008.
+
+        Given coordinates and data variables whose unit annotations have
+        differing lengths, when the Dataset overview is produced, every
+        variable's remaining representation fields remain readable and
+        associated with that variable without exact spacing or wording.
+        """
+        ds = Dataset(
+            data_vars={
+                "short": ("sample", [1.5, 2.5], {"units": "m"}),
+                "long": (
+                    "sample",
+                    np.array([3, 4], dtype=np.int16),
+                    {"units": "kilometres_per_observation_interval"},
+                ),
+            },
+            coords={
+                "sample": ("sample", [10, 20], {"units": "s"}),
+                "offset": (
+                    "sample",
+                    np.array([5, 6], dtype=np.int32),
+                    {"units": "metres_from_reference_point"},
+                ),
+            },
+        )
+
+        lines = repr(ds).splitlines()
+        expected_fields = {
+            "sample [s]": ("(sample) int64", "10 20"),
+            "offset [metres_from_reference_point]": ("(sample) int32", "5 6"),
+            "short [m]": ("(sample) float64", "1.5 2.5"),
+            "long [kilometres_per_observation_interval]": (
+                "(sample) int16",
+                "3 4",
+            ),
+        }
+
+        for label, (dimensions_and_dtype, data) in expected_fields.items():
+            owner_line = next(line for line in lines if label in line)
+            assert dimensions_and_dtype in owner_line
+            assert data in owner_line
+
+    def test_xarray_009_known_dataset_when_representation_is_produced_preserves_coordinate_and_data_variable_membership(
+        self,
+    ):
+        """Dataset representation preserves contents. GUID: XARRAY-009."""
+        ds = Dataset(
+            data_vars={"temperature": ("station", [18.5, 21.0])},
+            coords={
+                "station": ("station", [101, 102]),
+                "latitude": ("station", [4.6, 6.2]),
+            },
+        )
+        expected_variables = tuple(ds.variables)
+        expected_coords = tuple(ds.coords)
+        expected_data_vars = tuple(ds.data_vars)
+
+        repr(ds)
+
+        assert tuple(ds.variables) == expected_variables
+        assert tuple(ds.coords) == expected_coords
+        assert tuple(ds.data_vars) == expected_data_vars
+
+    def test_xarray_009_known_dataset_when_representation_is_produced_preserves_coordinate_and_data_variable_values(
+        self,
+    ):
+        """Dataset representation preserves all data values. GUID: XARRAY-009."""
+        ds = Dataset(
+            data_vars={"temperature": ("station", [18.5, np.nan])},
+            coords={
+                "station": ("station", [101, 102]),
+                "latitude": ("station", [4.6, 6.2]),
+            },
+        )
+        expected_values = {
+            name: variable.values.copy() for name, variable in ds.variables.items()
+        }
+
+        repr(ds)
+
+        for name, expected in expected_values.items():
+            assert_array_equal(ds.variables[name].values, expected)
+
+    def test_xarray_009_known_dataset_when_representation_is_produced_preserves_variable_metadata_including_units(
+        self,
+    ):
+        """Dataset representation preserves variable metadata. GUID: XARRAY-009."""
+        ds = Dataset(
+            data_vars={
+                "temperature": (
+                    "station",
+                    [18.5, 21.0],
+                    {"units": "degC", "description": "air temperature"},
+                )
+            },
+            coords={
+                "station": ("station", [101, 102], {"units": "identifier"}),
+                "latitude": ("station", [4.6, 6.2], {"units": "degrees_north"}),
+            },
+        )
+        expected_attrs = {
+            name: deepcopy(variable.attrs)
+            for name, variable in ds.variables.items()
+        }
+
+        repr(ds)
+
+        actual_attrs = {
+            name: variable.attrs for name, variable in ds.variables.items()
+        }
+        assert actual_attrs == expected_attrs
+
     def test_repr(self):
         data = create_test_data(seed=123)
         data.attrs["foo"] = "bar"
