@@ -418,6 +418,8 @@ def test_xarray_003_letters_dataset_groupby_repr_matches_exact_two_line_text():
 
 def test_xarray_004_ordinary_grouping_key_repr_has_no_trailing_whitespace():
     """XARRAY-004: ordinary-key expected and actual output are whitespace-free."""
+    # ARCHITECTURE — XARRAY-004: this test locus owns the ordinary-key contract
+    # at the public Dataset.groupby -> GroupBy.__repr__ integration boundary.
     # PSEUDOCODE — XARRAY-004 ordinary grouping-key representation:
     # GIVEN a Dataset grouped by an ordinary one-dimensional key,
     # BUILD the complete expected two-line representation with the first newline
@@ -432,6 +434,8 @@ def test_xarray_004_ordinary_grouping_key_repr_has_no_trailing_whitespace():
 
 def test_xarray_004_multidimensional_grouping_key_repr_preserves_other_content():
     """XARRAY-004: multidimensional-key output changes only in whitespace."""
+    # ARCHITECTURE — XARRAY-004: this test locus owns the multidimensional-key
+    # contract after GroupBy construction normalizes the key through _ensure_1d.
     # PSEUDOCODE — XARRAY-004 multidimensional grouping-key representation:
     # GIVEN a Dataset grouped by a key spanning multiple dimensions,
     # BUILD the established complete expected representation, changing only the
@@ -446,6 +450,8 @@ def test_xarray_004_multidimensional_grouping_key_repr_preserves_other_content()
 
 def test_xarray_004_datetime_grouping_key_repr_preserves_other_content():
     """XARRAY-004: datetime-key output changes only in whitespace."""
+    # ARCHITECTURE — XARRAY-004: this test locus owns the datetime accessor seam;
+    # derived key naming must still terminate in the shared GroupBy.__repr__ path.
     # PSEUDOCODE — XARRAY-004 datetime grouping-key representation:
     # GIVEN a Dataset grouped through a datetime-derived key,
     # BUILD the established complete expected representation with the first newline
