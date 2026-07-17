@@ -81,19 +81,50 @@ class TestRelaxedDatasetConcatContract:
 
     def test_xconcat_003_absent_input_contributions_use_applicable_missing_values(self):
         """GUID: XCONCAT-003; absent contributions transition to missing values."""
-        assert True
+        datasets = [
+            Dataset({"shared": ("x", [1, 2])}),
+            Dataset({"shared": ("x", [3, 4, 5]), "partial": ("x", [6, 7, 8])}),
+        ]
+
+        actual = concat(datasets, dim="x")
+
+        assert_array_equal(actual["partial"], [np.nan, np.nan, 6, 7, 8])
 
     def test_xconcat_004_retained_source_values_remain_unchanged_at_source_positions(self):
         """GUID: XCONCAT-004; source values retain value and result position."""
-        assert True
+        datasets = [
+            Dataset({"shared": ("x", [0]), "partial": ("x", [-4])}),
+            Dataset({"shared": ("x", [1, 2])}),
+            Dataset({"shared": ("x", [3, 4]), "partial": ("x", [9, 11])}),
+        ]
+
+        actual = concat(datasets, dim="x")
+
+        assert_array_equal(actual["partial"][[0, 3, 4]], [-4, 9, 11])
 
     def test_xconcat_005_shared_variable_retains_values_in_input_order_with_partial_variable(self):
         """GUID: XCONCAT-005; shared values retain established input ordering."""
-        assert True
+        datasets = [
+            Dataset({"shared": ("x", [3, 4]), "partial": ("x", [30, 40])}),
+            Dataset({"shared": ("x", [1])}),
+            Dataset({"shared": ("x", [2, 5])}),
+        ]
+
+        actual = concat(datasets, dim="x")
+
+        assert_array_equal(actual["shared"], [3, 4, 1, 2, 5])
 
     def test_xconcat_003_xconcat_004_partial_values_and_missing_gaps_follow_input_order(self):
         """GUID: XCONCAT-003, XCONCAT-004; values and gaps retain input positions."""
-        assert True
+        datasets = [
+            Dataset({"shared": ("x", [0, 1]), "partial": ("x", [10, 11])}),
+            Dataset({"shared": ("x", [2, 3, 4])}),
+            Dataset({"shared": ("x", [5]), "partial": ("x", [20])}),
+        ]
+
+        actual = concat(datasets, dim="x")
+
+        assert_array_equal(actual["partial"], [10, 11, np.nan, np.nan, np.nan, 20])
 
 
 class TestConcatDataset:

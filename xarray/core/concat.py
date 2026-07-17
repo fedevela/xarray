@@ -469,12 +469,20 @@ def _dataset_concat(
                 missing_fill_value = fill_value
                 if missing_fill_value is dtypes.NA:
                     missing_fill_value = dtypes.get_fill_value(sample.dtype)
-                missing_var = Variable(
-                    (), missing_fill_value, attrs=sample.attrs, encoding=sample.encoding
-                )
-                vars = ensure_common_dims(
-                    [ds.variables.get(k, missing_var) for ds in datasets]
-                )
+                contributions = []
+                for ds in datasets:
+                    if k in ds.variables:
+                        contributions.append(ds.variables[k])
+                    else:
+                        contributions.append(
+                            Variable(
+                                (),
+                                missing_fill_value,
+                                attrs=sample.attrs,
+                                encoding=sample.encoding,
+                            )
+                        )
+                vars = ensure_common_dims(contributions)
             else:
                 try:
                     vars = ensure_common_dims([ds.variables[k] for ds in datasets])
