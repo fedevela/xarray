@@ -524,6 +524,13 @@ def array_repr(arr):
 def dataset_repr(ds):
     summary = ["<xarray.{}>".format(type(ds).__name__)]
 
+    # GUID: XARRAY-009 non-mutation boundary: dataset_repr owns only newly
+    # constructed presentation state. The Dataset, its coordinate/data-variable
+    # mappings, each variable's data, and each variable's metadata remain
+    # read-only authorities across this boundary. Dependencies point from this
+    # orchestration function into dimension, section, and variable summarizers;
+    # those seams return text and do not transfer mutation ownership upstream.
+
     # GUID: XARRAY-006, XARRAY-007, XARRAY-008 architecture ownership:
     # dataset_repr owns overview topology and the shared label-column boundary.
     # Coordinates flow only through coords_repr and data variables only through
