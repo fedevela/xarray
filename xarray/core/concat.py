@@ -240,6 +240,11 @@ def _calc_concat_over(datasets, dim, dim_names, data_vars, coords, compat):
 
 # determine dimensional coordinate names and a dict mapping name to DataArray
 def _parse_datasets(datasets):
+    # ARCHITECTURE CONTRACT — GUID: XCONCAT-001, GUID: XCONCAT-002
+    # Ownership: this parser is the discovery boundary for names across every
+    # input Dataset. Its `data_vars` return is the authoritative result-name
+    # union consumed by the dataset-concat planner; no downstream dependency
+    # may narrow that contract to the first Dataset.
 
     dims = set()
     all_coord_names = set()
@@ -291,6 +296,19 @@ def _dataset_concat(
     #     input name addresses the same result key and cannot create a duplicate.
     # FAILURE: propagate ordinary alignment, compatibility, dimension, or variable
     #     combination failures; absence from only some inputs is not itself an error.
+    #
+    # ARCHITECTURE PLACEMENT — GUID: XCONCAT-001, GUID: XCONCAT-002
+    # `_dataset_concat` owns the private integration seam between all-input name
+    # discovery, merge/concat classification, and result assembly. Classification
+    # must operate on `_parse_datasets` unions. Assembly must retain input-slot
+    # identity while collecting same-name occurrences and write each discovered
+    # data name through one `result_vars[name]` key.
+    #
+    # Dependency direction remains orchestration -> `align`, `unique_variable`,
+    # and `concat_vars`: alignment does not manufacture missing data variables;
+    # `unique_variable` remains the complete-input, non-concatenated merge port;
+    # `concat_vars` remains the variable-combination port. Missing-input policy
+    # belongs at this orchestration seam, without widening either dependency's API.
     from .dataset import Dataset
 
     dim, coord = _calc_concat_dim_coord(dim)
