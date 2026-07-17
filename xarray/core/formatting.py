@@ -375,6 +375,10 @@ def _calculate_col_width(col_items):
 
 
 def _mapping_repr(mapping, title, summarizer, col_width=None):
+    # GUID: XARRAY-005 ownership boundary: mapping iteration is the canonical
+    # owner-to-summary association. Presentation metadata must reach summarizer
+    # through the same (name, variable) pair; section formatters must not build
+    # or consume a detached sequence of unit labels.
     if col_width is None:
         col_width = _calculate_col_width(mapping)
     summary = [f"{title}:"]
@@ -513,6 +517,14 @@ def array_repr(arr):
 
 def dataset_repr(ds):
     summary = ["<xarray.{}>".format(type(ds).__name__)]
+
+    # GUID: XARRAY-003, XARRAY-004, XARRAY-005 architecture ownership:
+    # dataset_repr is the sole Dataset-overview unit-label policy owner. One
+    # private derivation contract serves both coordinate and data-variable
+    # mappings: it accepts an owning (name, variable) pair and returns only its
+    # display label. The original variable crosses the existing summarizer seam
+    # separately, keeping metadata lookup, fallback, and owner association out
+    # of shared Variable/DataArray and section-layout formatters.
 
     # PSEUDOCODE -- GUID: XARRAY-003, XARRAY-004
     # FUNCTION derive_unit_label(owner_name, owner_variable):
