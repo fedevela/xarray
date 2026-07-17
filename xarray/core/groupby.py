@@ -447,6 +447,11 @@ class GroupBy(SupportsArithmetic):
     #   "DatasetGroupBy, grouped over 'letters'\n2 groups with labels 'a', 'b'.".
     # FAILURE PATH: IF class, group, count, or label formatting fails, PROPAGATE
     #   that formatting failure; do not emit a partial or independently altered summary.
+    # ARCHITECTURE — XARRAY-001, XARRAY-002, XARRAY-003:
+    # GroupBy.__repr__ owns the complete two-line summary inherited by
+    # DatasetGroupBy; keep the newline boundary here rather than adding a
+    # DatasetGroupBy override. _unique_coord supplies the name and count, while
+    # format_array_flat remains the one-way dependency for label text only.
     def __repr__(self):
         return "{}, grouped over {!r} \n{!r} groups with labels {}.".format(
             self.__class__.__name__,
