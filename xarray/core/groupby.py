@@ -453,7 +453,7 @@ class GroupBy(SupportsArithmetic):
     # DatasetGroupBy override. _unique_coord supplies the name and count, while
     # format_array_flat remains the one-way dependency for label text only.
     def __repr__(self):
-        return "{}, grouped over {!r} \n{!r} groups with labels {}.".format(
+        return "{}, grouped over {!r}\n{!r} groups with labels {}.".format(
             self.__class__.__name__,
             self._unique_coord.name,
             self._unique_coord.size,
