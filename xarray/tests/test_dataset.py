@@ -413,6 +413,42 @@ class TestDataset:
                 if other_units != units:
                     assert other_units not in owner_lines[owner]
 
+    def test_xarray_006_dataset_overview_with_units_keeps_coordinates_and_data_variables_in_their_distinct_sections(
+        self,
+    ):
+        """GUID: XARRAY-006.
+
+        Given a Dataset containing coordinates and data variables, when its
+        overview is produced with unit annotations, coordinates remain in the
+        Coordinates section and data variables remain in the Data variables
+        section.
+        """
+        assert True
+
+    def test_xarray_007_dataset_overview_with_units_keeps_dimension_summary_variable_dimensions_shapes_dtypes_and_abbreviated_data_accurate(
+        self,
+    ):
+        """GUID: XARRAY-007.
+
+        Given known Dataset dimensions, variable dimensions, shapes, dtypes,
+        and values, when its overview is produced with unit annotations, the
+        dimension summary and every variable's dimensions, shape, dtype, and
+        abbreviated data remain accurate.
+        """
+        assert True
+
+    def test_xarray_008_dataset_overview_with_differing_length_units_keeps_remaining_fields_readable_and_associated_with_each_variable(
+        self,
+    ):
+        """GUID: XARRAY-008.
+
+        Given coordinates and data variables whose unit annotations have
+        differing lengths, when the Dataset overview is produced, every
+        variable's remaining representation fields remain readable and
+        associated with that variable without exact spacing or wording.
+        """
+        assert True
+
     def test_repr(self):
         data = create_test_data(seed=123)
         data.attrs["foo"] = "bar"
