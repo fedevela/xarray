@@ -544,20 +544,8 @@ def dataset_repr(ds):
     #   summarizer, preserving mapping order and adjacency in the emitted line.
     #   NEVER reuse, shift, or attach one pair's units_metadata to another pair.
 
-    # GUID: XARRAY-001: Dataset-only coordinate unit labels.
-    def coord_display_name(name, var):
-        units = var.attrs.get("units")
-        if units is None:
-            return name
-        try:
-            unit_text = str(units)
-        except Exception:
-            return name
-        unit_text = unit_text.replace("\t", "\\t").replace("\n", "\\n")
-        return f"{name} [{unit_text}]" if unit_text else name
-
-    # GUID: XARRAY-002: Dataset-only data-variable unit labels.
-    def datavar_display_name(name, var):
+    # GUID: XARRAY-003, XARRAY-004: shared Dataset-only unit-label derivation.
+    def unit_display_name(name, var):
         units = var.attrs.get("units")
         if units is None:
             return name
@@ -569,11 +557,9 @@ def dataset_repr(ds):
         return f"{name} [{unit_text}]" if unit_text else name
 
     col_width = _calculate_col_width(_get_col_items(ds.variables))
-    coord_display_names = [coord_display_name(k, v) for k, v in ds.coords.items()]
+    coord_display_names = [unit_display_name(k, v) for k, v in ds.coords.items()]
     col_width = max(col_width, _calculate_col_width(coord_display_names))
-    datavar_display_names = [
-        datavar_display_name(k, v) for k, v in ds.data_vars.items()
-    ]
+    datavar_display_names = [unit_display_name(k, v) for k, v in ds.data_vars.items()]
     col_width = max(col_width, _calculate_col_width(datavar_display_names))
 
     dims_start = pretty_print("Dimensions:", col_width)
@@ -581,7 +567,7 @@ def dataset_repr(ds):
 
     if ds.coords:
         def summarize_coord_with_units(name, var, col_width):
-            display_name = coord_display_name(name, var)
+            display_name = unit_display_name(name, var)
             return summarize_coord(name, var, col_width, display_name=display_name)
 
         summary.append(
@@ -602,7 +588,7 @@ def dataset_repr(ds):
     # label alongside its unchanged owning variable. No unit policy belongs in
     # shared Variable/DataArray or Dataset-difference representations.
     def summarize_datavar_with_units(name, var, col_width):
-        display_name = datavar_display_name(name, var)
+        display_name = unit_display_name(name, var)
         return summarize_datavar(display_name, var, col_width)
 
     summary.append(

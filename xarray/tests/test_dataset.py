@@ -276,7 +276,21 @@ class TestDataset:
         Dataset overview is produced, both keep name-only labels and rendering
         completes without error.
         """
-        assert True
+        ds = Dataset(
+            data_vars={"measurement": ("sample", [1.0, 2.0], {"units": None})},
+            coords={"sample": [0, 1]},
+        )
+
+        overview = repr(ds)
+        coordinate_line = next(
+            line for line in overview.splitlines() if "* sample" in line
+        )
+        data_variable_line = next(
+            line for line in overview.splitlines() if "measurement" in line
+        )
+
+        assert "sample [" not in coordinate_line
+        assert "measurement [" not in data_variable_line
 
     def test_xarray_003_dataset_overview_mixed_unit_bearing_and_unitless_entries_annotates_only_unit_bearing_owners(
         self,
@@ -287,7 +301,27 @@ class TestDataset:
         Dataset overview is produced, only unit-bearing entries are annotated and
         unitless entries keep name-only labels.
         """
-        assert True
+        ds = Dataset(
+            data_vars={
+                "speed": ("distance", [1.0, 2.0], {"units": "m/s"}),
+                "count": ("distance", [3, 4], {"units": ""}),
+            },
+            coords={
+                "distance": ("distance", [0, 1], {"units": "m"}),
+                "sequence": ("distance", [10, 11]),
+            },
+        )
+
+        lines = repr(ds).splitlines()
+        distance_line = next(line for line in lines if "* distance" in line)
+        sequence_line = next(line for line in lines if "sequence" in line)
+        speed_line = next(line for line in lines if "speed" in line)
+        count_line = next(line for line in lines if "count" in line)
+
+        assert "distance [m]" in distance_line
+        assert "speed [m/s]" in speed_line
+        assert "sequence [" not in sequence_line
+        assert "count [" not in count_line
 
     def test_xarray_004_dataset_overview_unnormalized_coordinate_and_data_variable_units_reproduce_metadata_values_faithfully(
         self,
@@ -299,7 +333,31 @@ class TestDataset:
         reproduces each metadata value without validation, parsing, normalization,
         interpretation, or conversion.
         """
-        assert True
+        coordinate_units = " Meters PER weird_second^2 "
+        data_variable_units = "deg C?! / raw-unit"
+        ds = Dataset(
+            data_vars={
+                "acceleration": (
+                    "position",
+                    [1.0, 2.0],
+                    {"units": data_variable_units},
+                )
+            },
+            coords={
+                "position": (
+                    "position",
+                    [0, 1],
+                    {"units": coordinate_units},
+                )
+            },
+        )
+
+        lines = repr(ds).splitlines()
+        coordinate_line = next(line for line in lines if "* position" in line)
+        data_variable_line = next(line for line in lines if "acceleration" in line)
+
+        assert f"position [{coordinate_units}]" in coordinate_line
+        assert f"acceleration [{data_variable_units}]" in data_variable_line
 
     def test_xarray_005_dataset_overview_distinct_coordinate_and_data_variable_units_remain_associated_with_their_owners(
         self,
@@ -310,7 +368,50 @@ class TestDataset:
         the Dataset overview is produced, each annotation remains adjacent to its
         owner and no unit is attributed to another entry.
         """
-        assert True
+        owners_and_units = {
+            "latitude": "degrees_north",
+            "longitude": "degrees_east",
+            "temperature": "kelvin_owner_only",
+            "precipitation": "millimetres_owner_only",
+        }
+        ds = Dataset(
+            data_vars={
+                "temperature": (
+                    "latitude",
+                    [280.0, 281.0],
+                    {"units": owners_and_units["temperature"]},
+                ),
+                "precipitation": (
+                    "latitude",
+                    [0.0, 1.0],
+                    {"units": owners_and_units["precipitation"]},
+                ),
+            },
+            coords={
+                "latitude": (
+                    "latitude",
+                    [0, 1],
+                    {"units": owners_and_units["latitude"]},
+                ),
+                "longitude": (
+                    "latitude",
+                    [2, 3],
+                    {"units": owners_and_units["longitude"]},
+                ),
+            },
+        )
+
+        lines = repr(ds).splitlines()
+        owner_lines = {
+            owner: next(line for line in lines if f"{owner} [" in line)
+            for owner in owners_and_units
+        }
+
+        for owner, units in owners_and_units.items():
+            assert f"{owner} [{units}]" in owner_lines[owner]
+            for other_units in owners_and_units.values():
+                if other_units != units:
+                    assert other_units not in owner_lines[owner]
 
     def test_repr(self):
         data = create_test_data(seed=123)
