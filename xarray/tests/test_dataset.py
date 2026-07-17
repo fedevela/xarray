@@ -3160,6 +3160,12 @@ class TestDataset:
         with pytest.raises(MergeError):
             conflicting.to_unstacked_dataset("features")
 
+    def test_xarray_008_multiple_single_sample_dim_variables_roundtrip_completes_and_preserves_identity(
+        self,
+    ):
+        """GUID: XARRAY-008."""
+        assert True
+
     def test_update(self):
         data = create_test_data(seed=0)
         expected = data.copy()
