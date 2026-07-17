@@ -594,6 +594,26 @@ def dataset_repr(ds):
     # IF a label cannot be displayed, fall back for that owner only and retain the
     # shared-width calculation and all remaining owner-associated fields.
 
+    # PSEUDOCODE -- GUID: XARRAY-009
+    # INPUT the Dataset as read-only representation source; retain its entry state:
+    # coordinate and data-variable membership, every variable's values, and every
+    # variable metadata mapping including any "units" entry.
+    # BUILD all headers, display labels, widths, and section summaries as new local
+    # presentation values; NEVER insert, remove, replace, or reorder Dataset members,
+    # write through variable data, or add, remove, or rewrite variable metadata.
+    # FOR EACH coordinate and data-variable owner pair in its existing mapping order:
+    #   READ the unchanged owning variable for dimensions, dtype, abbreviated values,
+    #   and metadata needed by presentation-only derivation.
+    #   HAND OFF that same variable to the appropriate read-only summarizer and append
+    #   only the returned text to the local representation summary.
+    # IF display-label derivation cannot represent "units":
+    #   USE the raw owner name as the local label; leave the metadata entry unchanged.
+    # IF any later representation step fails:
+    #   PROPAGATE its existing failure outcome without committing changes to Dataset
+    #   membership, variable values, or variable metadata.
+    # BEFORE returning the joined representation, preserve the entry state as the
+    # invariant output state; RETURN only newly constructed presentation text.
+
     # GUID: XARRAY-003, XARRAY-004: shared Dataset-only unit-label derivation.
     def unit_display_name(name, var):
         units = var.attrs.get("units")
