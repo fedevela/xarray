@@ -273,6 +273,24 @@ def _dataset_concat(
     """
     Concatenate a sequence of datasets along a new or existing dimension
     """
+    # PSEUDOCODE CONTRACT — GUID: XCONCAT-001, GUID: XCONCAT-002
+    # INPUT: two or more datasets selected for relaxed dataset concatenation.
+    # LET result_data_names := the union of every input dataset's data-variable
+    #     names, retaining one name entry regardless of how many inputs contain it.
+    # FOR EACH name IN result_data_names:
+    #     LET occurrences := variables named `name`, paired with their input slots.
+    #     IF occurrences omit one or more input slots:
+    #         continue through the relaxed missing-variable path; do not reject the
+    #         unequal variable sets, mutate inputs with placeholders, or discard name.
+    #     ELSE:
+    #         continue through the ordinary all-input variable path.
+    #     HAND OFF occurrences and input-slot information to the existing variable
+    #     combination policy, and assign its output once at result_data_vars[name].
+    # END FOR
+    # OUTPUT: result_data_vars has exactly the keys in result_data_names; a repeated
+    #     input name addresses the same result key and cannot create a duplicate.
+    # FAILURE: propagate ordinary alignment, compatibility, dimension, or variable
+    #     combination failures; absence from only some inputs is not itself an error.
     from .dataset import Dataset
 
     dim, coord = _calc_concat_dim_coord(dim)
