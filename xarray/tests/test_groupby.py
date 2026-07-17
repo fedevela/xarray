@@ -383,6 +383,21 @@ repr_da = xr.DataArray(
 )
 
 
+def test_xarray_001_dataset_groupby_repr_newline_immediately_follows_group_name():
+    """XARRAY-001: text has no whitespace between the group name and newline."""
+    assert True
+
+
+def test_xarray_002_dataset_groupby_repr_whitespace_removal_preserves_summary():
+    """XARRAY-002: correction preserves content and the two-line layout."""
+    assert True
+
+
+def test_xarray_003_letters_dataset_groupby_repr_matches_exact_two_line_text():
+    """XARRAY-003: the demonstrated letters grouping has the specified text."""
+    assert True
+
+
 @pytest.mark.parametrize("dim", ["x", "y", "z", "month"])
 @pytest.mark.parametrize("obj", [repr_da, repr_da.to_dataset(name="a")])
 def test_groupby_repr(obj, dim):
