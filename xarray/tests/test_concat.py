@@ -130,19 +130,58 @@ class TestRelaxedDatasetConcatContract:
         self,
     ):
         """GUID: XCONCAT-006; relaxed partial data preserves established alignment."""
-        assert True
+        left = Dataset(
+            {"shared": ("x", [1, 2]), "partial": ("x", [10, 20])},
+            coords={"x": [0, 1]},
+        )
+        right = Dataset({"shared": ("x", [3, 4])}, coords={"x": [1, 2]})
+        right_with_missing = right.assign(partial=("x", [np.nan, np.nan]))
+
+        actual = concat([left, right], dim="source", join="outer")
+        expected = concat(
+            [left, right_with_missing], dim="source", join="outer"
+        )
+
+        assert_identical(actual, expected)
+        assert actual["partial"].dims == ("source", "x")
+        assert_array_equal(actual["x"], [0, 1, 2])
 
     def test_xconcat_007_relaxed_matching_variable_sets_equal_established_concat_result(
         self,
     ):
         """GUID: XCONCAT-007; matching sets preserve the established concat result."""
-        assert True
+        datasets = [
+            Dataset(
+                {"varying": ("x", [1, 2]), "constant": 7},
+                coords={"x": [0, 1]},
+            ),
+            Dataset(
+                {"varying": ("x", [3]), "constant": 7}, coords={"x": [2]}
+            ),
+        ]
+        expected = Dataset(
+            {"varying": ("x", [1, 2, 3]), "constant": 7},
+            coords={"x": [0, 1, 2]},
+        )
+
+        actual = concat(datasets, dim="x", data_vars="different")
+
+        assert_identical(actual, expected)
 
     def test_xconcat_007_relaxed_matching_variable_sets_introduce_no_new_missing_portions(
         self,
     ):
         """GUID: XCONCAT-007; matching sets gain no relaxed-interface missing data."""
-        assert True
+        datasets = [
+            Dataset({"first": ("x", [1, 2]), "second": ("x", [10, 20])}),
+            Dataset({"first": ("x", [3]), "second": ("x", [30])}),
+        ]
+
+        actual = concat(datasets, dim="x")
+
+        for name in ["first", "second"]:
+            assert actual[name].dtype == datasets[0][name].dtype
+            assert not actual[name].isnull().any()
 
 
 class TestConcatDataset:
