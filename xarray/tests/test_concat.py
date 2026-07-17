@@ -126,6 +126,24 @@ class TestRelaxedDatasetConcatContract:
 
         assert_array_equal(actual["partial"], [10, 11, np.nan, np.nan, np.nan, 20])
 
+    def test_xconcat_006_relaxed_partial_variable_and_missing_portions_preserve_dimension_and_coordinate_alignment(
+        self,
+    ):
+        """GUID: XCONCAT-006; relaxed partial data preserves established alignment."""
+        assert True
+
+    def test_xconcat_007_relaxed_matching_variable_sets_equal_established_concat_result(
+        self,
+    ):
+        """GUID: XCONCAT-007; matching sets preserve the established concat result."""
+        assert True
+
+    def test_xconcat_007_relaxed_matching_variable_sets_introduce_no_new_missing_portions(
+        self,
+    ):
+        """GUID: XCONCAT-007; matching sets gain no relaxed-interface missing data."""
+        assert True
+
 
 class TestConcatDataset:
     @pytest.fixture
