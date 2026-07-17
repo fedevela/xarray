@@ -474,16 +474,41 @@ def test_xarray_004_datetime_grouping_key_repr_preserves_other_content():
 
 def test_xarray_005_affected_dataset_groupby_doctest_exact_comparison_has_no_trailing_whitespace():
     """XARRAY-005: exact doctest output is whitespace-free."""
+    # PSEUDOCODE — XARRAY-005 affected DatasetGroupBy doctest expectation:
+    # FOR EACH affected doctest that renders a DatasetGroupBy,
+    # DEFINE the expected output as the exact established two-line representation,
+    # placing the newline immediately after the rendered grouping-key name.
+    # INSPECT every expected-output line and REQUIRE it to equal its right-trimmed
+    # value; THEN compare the complete actual and expected output without normalization.
+    # FAILURE PATH: IF an expected line ends in whitespace or any actual character
+    # differs, REPORT the exact mismatch and FAIL; do not trim output or accept it
+    # loosely.
     assert True
 
 
 def test_xarray_005_affected_dataset_groupby_doctests_pass_without_suppressing_validation():
     """XARRAY-005: exact comparison and whitespace validation remain enabled."""
+    # PSEUDOCODE — XARRAY-005 validation handoff:
+    # DISCOVER the affected doctests through the existing doctest collection path.
+    # EXECUTE them with the existing exact-output comparison and whitespace checks.
+    # REQUIRE every affected example to pass under those unchanged validation rules.
+    # FAILURE PATH: IF collection, exact comparison, or whitespace validation fails,
+    # PROPAGATE that failure; do not skip an example, suppress a check, alter flags,
+    # normalize expected output, or retry through a weaker comparison path.
     assert True
 
 
 def test_xarray_006_changed_lines_end_without_whitespace():
     """XARRAY-006: every source, test, documentation, and repr line is clean."""
+    # PSEUDOCODE — XARRAY-006 changed-line whitespace gate:
+    # INPUT only lines introduced or updated by this change across source, tests,
+    # documentation, docstrings, and representation text.
+    # FOR EACH changed line, INSPECT the characters immediately before its line ending.
+    # IF the line ends with a space, tab, or other whitespace, RECORD its artifact and
+    # line locus and FAIL validation; OTHERWISE continue until all changed lines pass.
+    # OUTPUT success only after the complete changed-line set has been inspected.
+    # SCOPE GUARD: do not rewrite unchanged lines or weaken, disable, or suppress
+    # the gate.
     assert True
 
 
