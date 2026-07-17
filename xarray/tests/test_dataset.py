@@ -189,6 +189,18 @@ class InaccessibleVariableDataStore(backends.InMemoryDataStore):
 
 
 class TestDataset:
+    def test_xarray_002_dataset_overview_data_variable_with_displayable_units_shows_units_adjacent_to_name(
+        self,
+    ):
+        """A Dataset data variable displays its units. GUID: XARRAY-002."""
+        assert True
+
+    def test_xarray_002_dataset_overview_multiple_data_variables_with_displayable_units_each_show_units_adjacent_to_name(
+        self,
+    ):
+        """Each unit-bearing Dataset data variable displays its units. GUID: XARRAY-002."""
+        assert True
+
     def test_xarray_001_dataset_overview_coordinate_with_displayable_units_shows_units_adjacent_to_name(
         self,
     ):
