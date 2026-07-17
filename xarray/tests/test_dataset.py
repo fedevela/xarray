@@ -193,13 +193,43 @@ class TestDataset:
         self,
     ):
         """A Dataset data variable displays its units. GUID: XARRAY-002."""
-        assert True
+        ds = Dataset(
+            data_vars={"temperature": ("time", [18.0, 19.5], {"units": "degC"})}
+        )
+
+        data_variable_line = next(
+            line for line in repr(ds).splitlines() if "temperature" in line
+        )
+
+        assert (
+            data_variable_line.index("temperature")
+            < data_variable_line.index("degC")
+            < data_variable_line.index("(time)")
+        )
 
     def test_xarray_002_dataset_overview_multiple_data_variables_with_displayable_units_each_show_units_adjacent_to_name(
         self,
     ):
         """Each unit-bearing Dataset data variable displays its units. GUID: XARRAY-002."""
-        assert True
+        ds = Dataset(
+            data_vars={
+                "temperature": ("time", [18.0, 19.5], {"units": "degC"}),
+                "precipitation": ("time", [0.0, 2.5], {"units": "mm"}),
+            }
+        )
+
+        data_variable_lines = repr(ds).splitlines()
+        temperature_line = next(
+            line for line in data_variable_lines if "temperature" in line
+        )
+        precipitation_line = next(
+            line for line in data_variable_lines if "precipitation" in line
+        )
+
+        assert temperature_line.index("temperature") < temperature_line.index("degC")
+        assert precipitation_line.index("precipitation") < precipitation_line.index(
+            "mm"
+        )
 
     def test_xarray_001_dataset_overview_coordinate_with_displayable_units_shows_units_adjacent_to_name(
         self,

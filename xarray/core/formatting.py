@@ -526,9 +526,25 @@ def dataset_repr(ds):
         unit_text = unit_text.replace("\t", "\\t").replace("\n", "\\n")
         return f"{name} [{unit_text}]" if unit_text else name
 
+    # GUID: XARRAY-002: Dataset-only data-variable unit labels.
+    def datavar_display_name(name, var):
+        units = var.attrs.get("units")
+        if units is None:
+            return name
+        try:
+            unit_text = str(units)
+        except Exception:
+            return name
+        unit_text = unit_text.replace("\t", "\\t").replace("\n", "\\n")
+        return f"{name} [{unit_text}]" if unit_text else name
+
     col_width = _calculate_col_width(_get_col_items(ds.variables))
     coord_display_names = [coord_display_name(k, v) for k, v in ds.coords.items()]
     col_width = max(col_width, _calculate_col_width(coord_display_names))
+    datavar_display_names = [
+        datavar_display_name(k, v) for k, v in ds.data_vars.items()
+    ]
+    col_width = max(col_width, _calculate_col_width(datavar_display_names))
 
     dims_start = pretty_print("Dimensions:", col_width)
     summary.append("{}({})".format(dims_start, dim_summary(ds)))
@@ -550,33 +566,22 @@ def dataset_repr(ds):
     if unindexed_dims_str:
         summary.append(unindexed_dims_str)
 
-    # GUID: XARRAY-002 logic obligation for
-    # test_xarray_002_dataset_overview_data_variable_with_displayable_units_shows_units_adjacent_to_name
-    # and
-    # test_xarray_002_dataset_overview_multiple_data_variables_with_displayable_units_each_show_units_adjacent_to_name:
-    #
-    # PSEUDOCODE — build the Dataset overview's Data variables section:
-    #   FOR EACH (name, variable) IN ds.data_vars, preserving overview order:
-    #       units := READ variable metadata attribute "units" without inventing a default
-    #       IF units is absent:
-    #           display_name := name
-    #       ELSE:
-    #           TRY unit_text := CONVERT units to safe, single-line display text
-    #           IF conversion fails OR unit_text is not displayable:
-    #               display_name := name
-    #           ELSE:
-    #               display_name := PLACE unit_text adjacent to name
-    #       INCLUDE display_name when determining the section's name-column width
-    #       SUMMARIZE the original variable under display_name
-    #       APPEND that variable's summary to the Data variables section
-    #   RETURN every appended summary; one variable's missing or unusable units
-    #   MUST NOT suppress or alter the summaries of other variables.
     # GUID: XARRAY-002 integration seam: dataset_repr owns the display-label
     # provider and includes its labels in col_width; data_vars_repr remains the
     # downstream section boundary and summarize_datavar receives each derived
     # label alongside its unchanged owning variable. No unit policy belongs in
     # shared Variable/DataArray or Dataset-difference representations.
-    summary.append(data_vars_repr(ds.data_vars, col_width=col_width))
+    def summarize_datavar_with_units(name, var, col_width):
+        display_name = datavar_display_name(name, var)
+        return summarize_datavar(display_name, var, col_width)
+
+    summary.append(
+        data_vars_repr(
+            ds.data_vars,
+            col_width=col_width,
+            summarizer=summarize_datavar_with_units,
+        )
+    )
 
     if ds.attrs:
         summary.append(attrs_repr(ds.attrs))
