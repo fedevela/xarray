@@ -1898,6 +1898,11 @@ class DataArray(AbstractArray, DataWithCoords):
         ds = self._to_temp_dataset().unstack(dim, fill_value, sparse)
         return self._from_temp_dataset(ds)
 
+    # Roundtrip reconstruction boundary: XARRAY-001 through XARRAY-007.
+    # Dataset.to_stacked_array is the upstream encoding contract; this method
+    # owns variable reconstruction and exclusion of transport-only dimensions
+    # and coordinates. Dataset construction remains the downstream consistency
+    # seam so ordinary merge compatibility governs the reconstructed variables.
     def to_unstacked_dataset(self, dim, level=0):
         """Unstack DataArray expanding to Dataset along a given level of a
         stacked coordinate.
@@ -1950,6 +1955,27 @@ class DataArray(AbstractArray, DataWithCoords):
         Dataset.to_stacked_array
         """
 
+        # Identity-preserving stacked-array roundtrip pseudocode:
+        # XARRAY-001, XARRAY-002, XARRAY-003, XARRAY-005
+        # INPUT stacked array, caller-defined stacked dimension, variable level
+        # IF the stacked dimension is not a MultiIndex
+        #     RAISE the existing invalid-stacked-coordinate error
+        # RESOLVE the requested variable level and its original variable labels
+        # FOR EACH label, in the positive set of encoded variables
+        #     SELECT that label and DROP the selected variable-level coordinate
+        #     REMOVE only the residual singleton stacking axis
+        #     PRESERVE sample dimensions, coordinates, values, and variable name
+        #     STORE the reconstructed array exactly once under its original label
+        # END FOR
+        # XARRAY-004, XARRAY-006
+        # PRESERVE every additional non-sample dimension and its coordinates while
+        # applying the same loop for one or many encoded variables
+        # XARRAY-007
+        # CONSTRUCT the result through Dataset's normal consistency checks
+        # IF reconstructed arrays still contain conflicting coordinates
+        #     PROPAGATE the normal merge failure; DO NOT override compatibility
+        # RETURN a dataset identical to the source with no leaked stacked dimension
+
         idx = self.indexes[dim]
         if not isinstance(idx, pd.MultiIndex):
             raise ValueError(f"'{dim}' is not a stacked coordinate")
@@ -1961,7 +1987,7 @@ class DataArray(AbstractArray, DataWithCoords):
         # pull variables out of datarray
         data_dict = {}
         for k in variables:
-            data_dict[k] = self.sel({variable_dim: k}).squeeze(drop=True)
+            data_dict[k] = self.sel({variable_dim: k}, drop=True).squeeze(drop=True)
 
         # unstacked dataset
         return Dataset(data_dict)
