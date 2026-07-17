@@ -435,6 +435,18 @@ class GroupBy(SupportsArithmetic):
     def __iter__(self):
         return zip(self._unique_coord.values, self._iter_grouped())
 
+    # PSEUDOCODE — DatasetGroupBy textual representation contract:
+    # XARRAY-001: INPUT the runtime groupby class name and group name.
+    #   FORMAT the first line as "<class>, grouped over <group-name>".
+    #   APPEND the first newline directly after <group-name>; insert no whitespace.
+    # XARRAY-002: AFTER that newline, FORMAT the existing group count, labels,
+    #   punctuation, and ordering as the second line; preserve exactly two lines.
+    #   RETURN the joined first and second lines without changing any other content.
+    # XARRAY-003: IF the object is a DatasetGroupBy grouped over "letters" with
+    #   two labels "a" and "b", THEN RETURN exactly
+    #   "DatasetGroupBy, grouped over 'letters'\n2 groups with labels 'a', 'b'.".
+    # FAILURE PATH: IF class, group, count, or label formatting fails, PROPAGATE
+    #   that formatting failure; do not emit a partial or independently altered summary.
     def __repr__(self):
         return "{}, grouped over {!r} \n{!r} groups with labels {}.".format(
             self.__class__.__name__,
