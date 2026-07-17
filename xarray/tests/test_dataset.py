@@ -3057,39 +3057,108 @@ class TestDataset:
 
     def test_xarray_001_single_sample_dim_roundtrip_completes_without_exception(self):
         """GUID: XARRAY-001."""
-        assert True
+        source = xr.Dataset(
+            {"a": ("sample", [1, 2]), "b": ("sample", [3, 4])}
+        )
+
+        stacked = source.to_stacked_array("features", sample_dims=["sample"])
+        actual = stacked.to_unstacked_dataset("features")
+
+        assert set(actual.data_vars) == {"a", "b"}
 
     def test_xarray_002_single_sample_dim_roundtrip_reconstructs_identical_dataset(
         self,
     ):
         """GUID: XARRAY-002."""
-        assert True
+        source = xr.Dataset(
+            {"a": ("sample", [1, 2]), "b": ("sample", [3, 4])},
+            coords={"sample": [10, 20]},
+        )
+
+        stacked = source.to_stacked_array("features", sample_dims=["sample"])
+        actual = stacked.to_unstacked_dataset("features")
+
+        assert_identical(actual, source)
 
     def test_xarray_003_unstacked_variables_exclude_caller_stacked_dim(self):
         """GUID: XARRAY-003."""
-        assert True
+        stacked_dim = "caller_features"
+        source = xr.Dataset(
+            {"a": ("sample", [1, 2]), "b": ("sample", [3, 4])}
+        )
 
+        stacked = source.to_stacked_array(stacked_dim, sample_dims=["sample"])
+        actual = stacked.to_unstacked_dataset(stacked_dim)
+
+        for variable in actual.data_vars.values():
+            assert stacked_dim not in variable.dims
+            assert stacked_dim not in variable.coords
+
+    @pytest.mark.parametrize("variable_count", [1, 2, 4])
     def test_xarray_004_positive_variable_count_roundtrip_preserves_each_variable(
-        self,
+        self, variable_count
     ):
         """GUID: XARRAY-004."""
-        assert True
+        source = xr.Dataset(
+            {
+                "variable_{}".format(index): ("sample", [index, index + 1])
+                for index in range(variable_count)
+            }
+        )
 
+        stacked = source.to_stacked_array("features", sample_dims=["sample"])
+        actual = stacked.to_unstacked_dataset("features")
+
+        assert_identical(actual, source)
+
+    @pytest.mark.parametrize("stacked_dim", ["features", "custom_stacked_dim"])
     def test_xarray_005_caller_stacked_dim_name_roundtrip_preserves_identity_without_leakage(
-        self,
+        self, stacked_dim
     ):
         """GUID: XARRAY-005."""
-        assert True
+        source = xr.Dataset(
+            {"a": ("sample", [1, 2]), "b": ("sample", [3, 4])}
+        )
+
+        stacked = source.to_stacked_array(stacked_dim, sample_dims=["sample"])
+        actual = stacked.to_unstacked_dataset(stacked_dim)
+
+        assert_identical(actual, source)
+        assert stacked_dim not in actual.dims
+        assert stacked_dim not in actual.coords
 
     def test_xarray_006_nonsample_dims_roundtrip_preserves_variable_structure_and_values(
         self,
     ):
         """GUID: XARRAY-006."""
-        assert True
+        source = xr.Dataset(
+            {
+                "matrix": (("sample", "axis"), [[1, 2], [3, 4]]),
+                "vector": ("sample", [5, 6]),
+            },
+            coords={"sample": [10, 20], "axis": ["left", "right"]},
+        )
+
+        stacked = source.to_stacked_array("features", sample_dims=["sample"])
+        actual = stacked.to_unstacked_dataset("features")
+
+        assert_identical(actual, source)
 
     def test_xarray_007_roundtrip_succeeds_with_existing_merge_consistency_rules(self):
         """GUID: XARRAY-007."""
-        assert True
+        source = xr.Dataset(
+            {"a": ("sample", [1, 2]), "b": ("sample", [3, 4])}
+        )
+        stacked = source.to_stacked_array("features", sample_dims=["sample"])
+
+        actual = stacked.to_unstacked_dataset("features")
+        assert_identical(actual, source)
+
+        conflicting = stacked.assign_coords(
+            conflict=(("sample", "features"), [[0, 1], [0, 1]])
+        )
+        with pytest.raises(MergeError):
+            conflicting.to_unstacked_dataset("features")
 
     def test_update(self):
         data = create_test_data(seed=0)
