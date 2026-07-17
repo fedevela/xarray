@@ -1,3 +1,6 @@
+import doctest
+from pathlib import Path
+
 import numpy as np
 import pandas as pd
 import pytest
@@ -474,48 +477,37 @@ def test_xarray_004_datetime_grouping_key_repr_preserves_other_content():
 
 def test_xarray_005_affected_dataset_groupby_doctest_exact_comparison_has_no_trailing_whitespace():
     """XARRAY-005: exact doctest output is whitespace-free."""
-    # ARCHITECTURE — XARRAY-005: affected source docstrings own their literal
-    # expected output; GroupBy.__repr__ remains the sole producer-side boundary.
-    # PSEUDOCODE — XARRAY-005 affected DatasetGroupBy doctest expectation:
-    # FOR EACH affected doctest that renders a DatasetGroupBy,
-    # DEFINE the expected output as the exact established two-line representation,
-    # placing the newline immediately after the rendered grouping-key name.
-    # INSPECT every expected-output line and REQUIRE it to equal its right-trimmed
-    # value; THEN compare the complete actual and expected output without normalization.
-    # FAILURE PATH: IF an expected line ends in whitespace or any actual character
-    # differs, REPORT the exact mismatch and FAIL; do not trim output or accept it
-    # loosely.
-    assert True
+    source = (
+        '>>> ds = xr.Dataset(coords={"letters": ("x", ["a", "b"])})\n'
+        '>>> ds.groupby("letters")\n'
+        "DatasetGroupBy, grouped over 'letters'\n"
+        "2 groups with labels 'a', 'b'.\n"
+    )
+    test = doctest.DocTestParser().get_doctest(
+        source, {"xr": xr}, "dataset_groupby_repr", None, 0
+    )
+    expected = test.examples[-1].want
+    runner = doctest.DocTestRunner(optionflags=0)
 
-
-def test_xarray_005_affected_dataset_groupby_doctests_pass_without_suppressing_validation():
-    """XARRAY-005: exact comparison and whitespace validation remain enabled."""
-    # ARCHITECTURE — XARRAY-005: pytest's existing doctest collection and
-    # comparison path is the integration seam; no local adapter or option belongs here.
-    # PSEUDOCODE — XARRAY-005 validation handoff:
-    # DISCOVER the affected doctests through the existing doctest collection path.
-    # EXECUTE them with the existing exact-output comparison and whitespace checks.
-    # REQUIRE every affected example to pass under those unchanged validation rules.
-    # FAILURE PATH: IF collection, exact comparison, or whitespace validation fails,
-    # PROPAGATE that failure; do not skip an example, suppress a check, alter flags,
-    # normalize expected output, or retry through a weaker comparison path.
-    assert True
+    assert all(line == line.rstrip() for line in expected.splitlines())
+    assert all(not example.options for example in test.examples)
+    assert runner.run(test) == doctest.TestResults(failed=0, attempted=2)
 
 
 def test_xarray_006_changed_lines_end_without_whitespace():
     """XARRAY-006: every source, test, documentation, and repr line is clean."""
-    # ARCHITECTURE — XARRAY-006: the changed-file validation boundary owns this
-    # cross-artifact contract; production representation code gains no validator.
-    # PSEUDOCODE — XARRAY-006 changed-line whitespace gate:
-    # INPUT only lines introduced or updated by this change across source, tests,
-    # documentation, docstrings, and representation text.
-    # FOR EACH changed line, INSPECT the characters immediately before its line ending.
-    # IF the line ends with a space, tab, or other whitespace, RECORD its artifact and
-    # line locus and FAIL validation; OTHERWISE continue until all changed lines pass.
-    # OUTPUT success only after the complete changed-line set has been inspected.
-    # SCOPE GUARD: do not rewrite unchanged lines or weaken, disable, or suppress
-    # the gate.
-    assert True
+    artifacts = [Path(__file__), Path(__file__).parents[1] / "core" / "groupby.py"]
+
+    for artifact in artifacts:
+        lines = artifact.read_text(encoding="utf-8").splitlines()
+        trailing_whitespace = [
+            line_number
+            for line_number, line in enumerate(lines, 1)
+            if line != line.rstrip()
+        ]
+        assert not trailing_whitespace, (
+            f"{artifact} has trailing whitespace on lines {trailing_whitespace}"
+        )
 
 
 @pytest.mark.parametrize("dim", ["x", "y", "z", "month"])
