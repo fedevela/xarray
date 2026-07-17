@@ -514,6 +514,24 @@ def array_repr(arr):
 def dataset_repr(ds):
     summary = ["<xarray.{}>".format(type(ds).__name__)]
 
+    # PSEUDOCODE -- GUID: XARRAY-003, XARRAY-004
+    # FUNCTION derive_unit_label(owner_name, owner_variable):
+    #   READ units_metadata only from owner_variable.attrs["units"].
+    #   IF units_metadata is absent OR cannot be displayed:
+    #       RETURN owner_name unchanged so overview rendering continues.
+    #   ELSE:
+    #       APPEND units_metadata to owner_name exactly as supplied; DO NOT
+    #       validate, parse, interpret, normalize, convert, or infer its text.
+    #       RETURN the resulting owner-specific display label.
+    #
+    # PSEUDOCODE -- GUID: XARRAY-003, XARRAY-005
+    # FOR EACH (owner_name, owner_variable) pair in coordinates, then data variables:
+    #   CALL derive_unit_label with that same pair.
+    #   INCLUDE only that returned label when calculating the shared column width.
+    #   HAND OFF the label together with the unchanged owner_variable to its section
+    #   summarizer, preserving mapping order and adjacency in the emitted line.
+    #   NEVER reuse, shift, or attach one pair's units_metadata to another pair.
+
     # GUID: XARRAY-001: Dataset-only coordinate unit labels.
     def coord_display_name(name, var):
         units = var.attrs.get("units")
