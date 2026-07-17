@@ -541,19 +541,71 @@ class TestDataset:
         self,
     ):
         """Dataset representation preserves contents. GUID: XARRAY-009."""
-        assert True
+        ds = Dataset(
+            data_vars={"temperature": ("station", [18.5, 21.0])},
+            coords={
+                "station": ("station", [101, 102]),
+                "latitude": ("station", [4.6, 6.2]),
+            },
+        )
+        expected_variables = tuple(ds.variables)
+        expected_coords = tuple(ds.coords)
+        expected_data_vars = tuple(ds.data_vars)
+
+        repr(ds)
+
+        assert tuple(ds.variables) == expected_variables
+        assert tuple(ds.coords) == expected_coords
+        assert tuple(ds.data_vars) == expected_data_vars
 
     def test_xarray_009_known_dataset_when_representation_is_produced_preserves_coordinate_and_data_variable_values(
         self,
     ):
         """Dataset representation preserves all data values. GUID: XARRAY-009."""
-        assert True
+        ds = Dataset(
+            data_vars={"temperature": ("station", [18.5, np.nan])},
+            coords={
+                "station": ("station", [101, 102]),
+                "latitude": ("station", [4.6, 6.2]),
+            },
+        )
+        expected_values = {
+            name: variable.values.copy() for name, variable in ds.variables.items()
+        }
+
+        repr(ds)
+
+        for name, expected in expected_values.items():
+            assert_array_equal(ds.variables[name].values, expected)
 
     def test_xarray_009_known_dataset_when_representation_is_produced_preserves_variable_metadata_including_units(
         self,
     ):
         """Dataset representation preserves variable metadata. GUID: XARRAY-009."""
-        assert True
+        ds = Dataset(
+            data_vars={
+                "temperature": (
+                    "station",
+                    [18.5, 21.0],
+                    {"units": "degC", "description": "air temperature"},
+                )
+            },
+            coords={
+                "station": ("station", [101, 102], {"units": "identifier"}),
+                "latitude": ("station", [4.6, 6.2], {"units": "degrees_north"}),
+            },
+        )
+        expected_attrs = {
+            name: deepcopy(variable.attrs)
+            for name, variable in ds.variables.items()
+        }
+
+        repr(ds)
+
+        actual_attrs = {
+            name: variable.attrs for name, variable in ds.variables.items()
+        }
+        assert actual_attrs == expected_attrs
 
     def test_repr(self):
         data = create_test_data(seed=123)
