@@ -3164,6 +3164,18 @@ class TestDataset:
         self,
     ):
         """GUID: XARRAY-008."""
+        # LOGIC OBLIGATION (XARRAY-008): prove that multiple variables whose only
+        # dimension is the declared sample dimension survive a stacked roundtrip.
+        # GIVEN source := Dataset containing at least two data variables
+        #   AND FOR EACH variable IN source.data_vars:
+        #       variable.dims == (sample_dim,)
+        # WHEN stacked := source.to_stacked_array(stacked_dim,
+        #                                         sample_dims=[sample_dim])
+        #   AND reconstructed := stacked.to_unstacked_dataset(stacked_dim)
+        # FAILURE PATH: IF either conversion raises an exception, fail the case
+        #   because successful roundtrip completion is required.
+        # THEN verify assert_identical(reconstructed, source)
+        #   using xarray's standard identity comparison.
         assert True
 
     def test_update(self):
