@@ -495,6 +495,20 @@ def array_repr(arr):
 def dataset_repr(ds):
     summary = ["<xarray.{}>".format(type(ds).__name__)]
 
+    # GUID: XARRAY-001 -- Dataset overview coordinate-unit flow.
+    # INPUT: the Dataset coordinates, in their existing iteration order.
+    # FOR EACH coordinate, independently:
+    #   READ its `units` metadata without deriving or supplying a missing value.
+    #   IF `units` is present and can be rendered as display text:
+    #     COMPOSE a display label with that text adjacent to the coordinate name.
+    #   ELSE:
+    #     RETAIN the coordinate name unchanged and emit no inferred unit text.
+    #   HAND OFF the display label to the existing coordinate-summary path while
+    #   preserving index/MultiIndex handling, dimensions, dtype, values, and order.
+    # COLLECT every coordinate summary so each unit-bearing coordinate is treated.
+    # FAILURE PATH: non-displayable unit metadata follows the unchanged-name branch;
+    # the coordinate itself remains present in the Dataset Coordinates section.
+    # OUTPUT: the Dataset overview Coordinates section with applicable unit text.
     col_width = _calculate_col_width(_get_col_items(ds.variables))
 
     dims_start = pretty_print("Dimensions:", col_width)
