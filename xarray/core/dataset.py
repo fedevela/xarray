@@ -3367,6 +3367,10 @@ class Dataset(Mapping, ImplementsDatasetReduce, DataWithCoords):
             result = result._stack_once(dims, new_dim)
         return result
 
+    # Roundtrip encoding boundary: XARRAY-004, XARRAY-005, XARRAY-006.
+    # This method owns the variable-level MultiIndex topology and caller-defined
+    # stacked-dimension name consumed by DataArray.to_unstacked_dataset; the
+    # decoder, rather than this producer, owns removal of transport structure.
     def to_stacked_array(
         self,
         new_dim: Hashable,

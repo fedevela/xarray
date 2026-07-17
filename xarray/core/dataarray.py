@@ -1898,6 +1898,11 @@ class DataArray(AbstractArray, DataWithCoords):
         ds = self._to_temp_dataset().unstack(dim, fill_value, sparse)
         return self._from_temp_dataset(ds)
 
+    # Roundtrip reconstruction boundary: XARRAY-001 through XARRAY-007.
+    # Dataset.to_stacked_array is the upstream encoding contract; this method
+    # owns variable reconstruction and exclusion of transport-only dimensions
+    # and coordinates. Dataset construction remains the downstream consistency
+    # seam so ordinary merge compatibility governs the reconstructed variables.
     def to_unstacked_dataset(self, dim, level=0):
         """Unstack DataArray expanding to Dataset along a given level of a
         stacked coordinate.
