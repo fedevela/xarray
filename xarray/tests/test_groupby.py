@@ -418,16 +418,42 @@ def test_xarray_003_letters_dataset_groupby_repr_matches_exact_two_line_text():
 
 def test_xarray_004_ordinary_grouping_key_repr_has_no_trailing_whitespace():
     """XARRAY-004: ordinary-key expected and actual output are whitespace-free."""
+    # PSEUDOCODE — XARRAY-004 ordinary grouping-key representation:
+    # GIVEN a Dataset grouped by an ordinary one-dimensional key,
+    # BUILD the complete expected two-line representation with the first newline
+    # immediately after the rendered key name, and OBTAIN the actual representation.
+    # SPLIT expected and actual once at their first newline.
+    # REQUIRE each first line to equal its right-trimmed value, then REQUIRE exact
+    # equality of the complete strings so count, labels, ordering, and punctuation remain.
+    # FAILURE PATH: IF either first line has trailing whitespace or any remaining
+    # content differs, FAIL the representation comparison without normalizing either value.
     pass
 
 
 def test_xarray_004_multidimensional_grouping_key_repr_preserves_other_content():
     """XARRAY-004: multidimensional-key output changes only in whitespace."""
+    # PSEUDOCODE — XARRAY-004 multidimensional grouping-key representation:
+    # GIVEN a Dataset grouped by a key spanning multiple dimensions,
+    # BUILD the established complete expected representation, changing only the
+    # boundary after the rendered key name so the newline has no preceding whitespace.
+    # OBTAIN the actual representation and SPLIT both values once at that boundary.
+    # REQUIRE whitespace-free first lines and exact equality of the remaining count,
+    # flattened labels, ordering, punctuation, and complete representation.
+    # FAILURE PATH: IF whitespace remains at the boundary or non-whitespace content
+    # changes, FAIL with the unmodified expected and actual values available for diagnosis.
     pass
 
 
 def test_xarray_004_datetime_grouping_key_repr_preserves_other_content():
     """XARRAY-004: datetime-key output changes only in whitespace."""
+    # PSEUDOCODE — XARRAY-004 datetime grouping-key representation:
+    # GIVEN a Dataset grouped through a datetime-derived key,
+    # BUILD the established complete expected representation with the first newline
+    # directly after the derived key name, and OBTAIN the actual representation.
+    # SPLIT both values once at the first newline; REQUIRE each first line to be
+    # right-trimmed and REQUIRE exact equality of all group-count and label content.
+    # FAILURE PATH: IF the newline is preceded by whitespace or datetime-derived
+    # labels, ordering, or punctuation differ, FAIL without weakening exact comparison.
     pass
 
 
