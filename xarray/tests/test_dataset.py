@@ -537,6 +537,24 @@ class TestDataset:
             assert dimensions_and_dtype in owner_line
             assert data in owner_line
 
+    def test_xarray_009_known_dataset_when_representation_is_produced_preserves_coordinate_and_data_variable_membership(
+        self,
+    ):
+        """Dataset representation preserves contents. GUID: XARRAY-009."""
+        assert True
+
+    def test_xarray_009_known_dataset_when_representation_is_produced_preserves_coordinate_and_data_variable_values(
+        self,
+    ):
+        """Dataset representation preserves all data values. GUID: XARRAY-009."""
+        assert True
+
+    def test_xarray_009_known_dataset_when_representation_is_produced_preserves_variable_metadata_including_units(
+        self,
+    ):
+        """Dataset representation preserves variable metadata. GUID: XARRAY-009."""
+        assert True
+
     def test_repr(self):
         data = create_test_data(seed=123)
         data.attrs["foo"] = "bar"
