@@ -3164,6 +3164,14 @@ class TestDataset:
         self,
     ):
         """GUID: XARRAY-008."""
+        # ARCHITECTURE (XARRAY-008): TestDataset owns this regression because it
+        # already contains the Dataset/DataArray stacked-roundtrip integration
+        # boundary. Keep its source fixture and dimension names local to this
+        # case so the regression adds no shared test-helper or production API.
+        # The integration seam is the public Dataset.to_stacked_array() ->
+        # DataArray.to_unstacked_dataset() path; the existing assert_identical
+        # test utility owns the identity contract. An uncaught conversion error
+        # remains the test runner's completion-failure boundary.
         # LOGIC OBLIGATION (XARRAY-008): prove that multiple variables whose only
         # dimension is the declared sample dimension survive a stacked roundtrip.
         # GIVEN source := Dataset containing at least two data variables
