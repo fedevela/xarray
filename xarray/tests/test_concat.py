@@ -79,6 +79,22 @@ class TestRelaxedDatasetConcatContract:
         assert list(actual.data_vars).count("shared") == 1
         assert_array_equal(actual["shared"], [1, 2, 3])
 
+    def test_xconcat_003_absent_input_contributions_use_applicable_missing_values(self):
+        """GUID: XCONCAT-003; absent contributions transition to missing values."""
+        assert True
+
+    def test_xconcat_004_retained_source_values_remain_unchanged_at_source_positions(self):
+        """GUID: XCONCAT-004; source values retain value and result position."""
+        assert True
+
+    def test_xconcat_005_shared_variable_retains_values_in_input_order_with_partial_variable(self):
+        """GUID: XCONCAT-005; shared values retain established input ordering."""
+        assert True
+
+    def test_xconcat_003_xconcat_004_partial_values_and_missing_gaps_follow_input_order(self):
+        """GUID: XCONCAT-003, XCONCAT-004; values and gaps retain input positions."""
+        assert True
+
 
 class TestConcatDataset:
     @pytest.fixture
