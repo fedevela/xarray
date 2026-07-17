@@ -183,6 +183,18 @@ class TestRelaxedDatasetConcatContract:
             assert actual[name].dtype == datasets[0][name].dtype
             assert not actual[name].isnull().any()
 
+    # ACCEPTANCE ARCHITECTURE — GUID: XCONCAT-008
+    # This contract class owns the dataset-concatenation acceptance boundary for
+    # partially present variables.  The three methods below are the independent
+    # architecture loci for first-input, later-input, and multiple-input absence;
+    # each locus owns its input topology and complete expected variable contents.
+    #
+    # Dependency direction is test case -> public `concat` entry point -> result
+    # inspection.  Tests must not depend on `_dataset_concat` or on a test-only
+    # adapter that reproduces its missing-contribution policy.  Keeping fixtures
+    # local to each locus preserves input-position ownership and leaves production
+    # fill construction, ordering, and assembly behind the public API boundary.
+
     def test_xconcat_008_variable_absent_from_first_input_yields_first_missing_portion_and_preserves_later_values(
         self,
     ):
