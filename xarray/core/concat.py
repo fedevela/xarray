@@ -317,6 +317,33 @@ def _dataset_concat(
     # `unique_variable` remains the complete-input, non-concatenated merge port;
     # `concat_vars` remains the variable-combination port. Missing-input policy
     # belongs at this orchestration seam, without widening either dependency's API.
+    #
+    # PSEUDOCODE CONTRACT — GUID: XCONCAT-006, GUID: XCONCAT-007
+    # INPUT: datasets, concatenation dimension, established join/coordinate policy,
+    #     and the relaxed variable-presence policy.
+    # ALIGN every input with the established non-concatenation-dimension operation;
+    #     preserve its selected indexes, dimension sizes, and coordinate variables.
+    # FOR EACH data-variable name selected for the result:
+    #     LET presence := the ordered input slots containing that name.
+    #     IF presence omits one or more slots:                         [XCONCAT-006]
+    #         retain each present aligned occurrence;
+    #         derive every absent slot's extent from that aligned input's dimensions;
+    #         create a missing contribution only for each absent extent;
+    #         normalize present and missing contributions to the same established
+    #             dimension order and coordinate-aligned sizes;
+    #         concatenate them using the established positions and dimension.
+    #     ELSE:                                                       [XCONCAT-007]
+    #         create no missing contribution;
+    #         pass all aligned occurrences through the established complete-variable
+    #             merge-or-concatenate flow with the original options unchanged.
+    # END FOR
+    # OUTPUT: partial variables and their missing extents obey the same aligned
+    #     dimensions and coordinates as other result data; matching variable sets
+    #     equal the established concatenation result and contain no relaxed-only
+    #     missing portions.
+    # FAILURE: propagate established alignment, coordinate-role, compatibility,
+    #     dimension, position, dtype/fill, and concatenation failures; do not treat
+    #     partial presence alone as failure or recover from an alignment failure.
     from .dataset import Dataset
 
     dim, coord = _calc_concat_dim_coord(dim)
