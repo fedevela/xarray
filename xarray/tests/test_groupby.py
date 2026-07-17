@@ -418,49 +418,58 @@ def test_xarray_003_letters_dataset_groupby_repr_matches_exact_two_line_text():
 
 def test_xarray_004_ordinary_grouping_key_repr_has_no_trailing_whitespace():
     """XARRAY-004: ordinary-key expected and actual output are whitespace-free."""
-    # ARCHITECTURE — XARRAY-004: this test locus owns the ordinary-key contract
-    # at the public Dataset.groupby -> GroupBy.__repr__ integration boundary.
-    # PSEUDOCODE — XARRAY-004 ordinary grouping-key representation:
-    # GIVEN a Dataset grouped by an ordinary one-dimensional key,
-    # BUILD the complete expected two-line representation with the first newline
-    # immediately after the rendered key name, and OBTAIN the actual representation.
-    # SPLIT expected and actual once at their first newline.
-    # REQUIRE each first line to equal its right-trimmed value, then REQUIRE exact
-    # equality of the complete strings so count, labels, ordering, and punctuation remain.
-    # FAILURE PATH: IF either first line has trailing whitespace or any remaining
-    # content differs, FAIL the representation comparison without normalizing either value.
-    pass
+    ds = xr.Dataset(coords={"letters": ("x", ["a", "b"])})
+    expected = (
+        "DatasetGroupBy, grouped over 'letters'\n"
+        "2 groups with labels 'a', 'b'."
+    )
+
+    actual = repr(ds.groupby("letters"))
+    expected_first_line, _ = expected.split("\n", 1)
+    actual_first_line, _ = actual.split("\n", 1)
+
+    assert expected_first_line == expected_first_line.rstrip()
+    assert actual_first_line == actual_first_line.rstrip()
+    assert actual == expected
 
 
 def test_xarray_004_multidimensional_grouping_key_repr_preserves_other_content():
     """XARRAY-004: multidimensional-key output changes only in whitespace."""
-    # ARCHITECTURE — XARRAY-004: this test locus owns the multidimensional-key
-    # contract after GroupBy construction normalizes the key through _ensure_1d.
-    # PSEUDOCODE — XARRAY-004 multidimensional grouping-key representation:
-    # GIVEN a Dataset grouped by a key spanning multiple dimensions,
-    # BUILD the established complete expected representation, changing only the
-    # boundary after the rendered key name so the newline has no preceding whitespace.
-    # OBTAIN the actual representation and SPLIT both values once at that boundary.
-    # REQUIRE whitespace-free first lines and exact equality of the remaining count,
-    # flattened labels, ordering, punctuation, and complete representation.
-    # FAILURE PATH: IF whitespace remains at the boundary or non-whitespace content
-    # changes, FAIL with the unmodified expected and actual values available for diagnosis.
-    pass
+    ds = xr.Dataset(
+        data_vars={"value": (("x", "y"), [[10, 20], [30, 40]])},
+        coords={"key": (("x", "y"), [[2, 1], [2, 3]])},
+    )
+    expected = (
+        "DatasetGroupBy, grouped over 'key'\n"
+        "3 groups with labels 1, 2, 3."
+    )
+
+    actual = repr(ds.groupby("key"))
+    expected_first_line, _ = expected.split("\n", 1)
+    actual_first_line, _ = actual.split("\n", 1)
+
+    assert expected_first_line == expected_first_line.rstrip()
+    assert actual_first_line == actual_first_line.rstrip()
+    assert actual == expected
 
 
 def test_xarray_004_datetime_grouping_key_repr_preserves_other_content():
     """XARRAY-004: datetime-key output changes only in whitespace."""
-    # ARCHITECTURE — XARRAY-004: this test locus owns the datetime accessor seam;
-    # derived key naming must still terminate in the shared GroupBy.__repr__ path.
-    # PSEUDOCODE — XARRAY-004 datetime grouping-key representation:
-    # GIVEN a Dataset grouped through a datetime-derived key,
-    # BUILD the established complete expected representation with the first newline
-    # directly after the derived key name, and OBTAIN the actual representation.
-    # SPLIT both values once at the first newline; REQUIRE each first line to be
-    # right-trimmed and REQUIRE exact equality of all group-count and label content.
-    # FAILURE PATH: IF the newline is preceded by whitespace or datetime-derived
-    # labels, ordering, or punctuation differ, FAIL without weakening exact comparison.
-    pass
+    ds = xr.Dataset(
+        coords={"time": pd.date_range("2001-01-01", periods=4, freq="MS")}
+    )
+    expected = (
+        "DatasetGroupBy, grouped over 'month'\n"
+        "4 groups with labels 1, 2, 3, 4."
+    )
+
+    actual = repr(ds.groupby("time.month"))
+    expected_first_line, _ = expected.split("\n", 1)
+    actual_first_line, _ = actual.split("\n", 1)
+
+    assert expected_first_line == expected_first_line.rstrip()
+    assert actual_first_line == actual_first_line.rstrip()
+    assert actual == expected
 
 
 @pytest.mark.parametrize("dim", ["x", "y", "z", "month"])
