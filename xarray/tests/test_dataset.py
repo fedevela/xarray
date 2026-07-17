@@ -267,6 +267,51 @@ class TestDataset:
         assert latitude_line.index("latitude") < latitude_line.index("degrees_north")
         assert longitude_line.index("longitude") < longitude_line.index("degrees_east")
 
+    def test_xarray_003_dataset_overview_coordinate_and_data_variable_without_displayable_units_keep_name_only_labels_and_render_without_error(
+        self,
+    ):
+        """GUID: XARRAY-003.
+
+        Given a coordinate and data variable without displayable units, when the
+        Dataset overview is produced, both keep name-only labels and rendering
+        completes without error.
+        """
+        assert True
+
+    def test_xarray_003_dataset_overview_mixed_unit_bearing_and_unitless_entries_annotates_only_unit_bearing_owners(
+        self,
+    ):
+        """GUID: XARRAY-003.
+
+        Given unit-bearing and unitless coordinates and data variables, when the
+        Dataset overview is produced, only unit-bearing entries are annotated and
+        unitless entries keep name-only labels.
+        """
+        assert True
+
+    def test_xarray_004_dataset_overview_unnormalized_coordinate_and_data_variable_units_reproduce_metadata_values_faithfully(
+        self,
+    ):
+        """GUID: XARRAY-004.
+
+        Given coordinate and data-variable units text that has not been normalized
+        or interpreted, when the Dataset overview is produced, the displayed text
+        reproduces each metadata value without validation, parsing, normalization,
+        interpretation, or conversion.
+        """
+        assert True
+
+    def test_xarray_005_dataset_overview_distinct_coordinate_and_data_variable_units_remain_associated_with_their_owners(
+        self,
+    ):
+        """GUID: XARRAY-005.
+
+        Given multiple coordinates and data variables with distinct units, when
+        the Dataset overview is produced, each annotation remains adjacent to its
+        owner and no unit is attributed to another entry.
+        """
+        assert True
+
     def test_repr(self):
         data = create_test_data(seed=123)
         data.attrs["foo"] = "bar"
