@@ -261,6 +261,8 @@ def inline_variable_array_repr(var, max_width):
         return inline_dask_repr(var.data)
     elif isinstance(var._data, sparse_array_type):
         return inline_sparse_repr(var.data)
+    elif hasattr(var._data, "_repr_inline_"):
+        return var._data._repr_inline_(max_width)
     elif hasattr(var._data, "__array_function__"):
         return maybe_truncate(repr(var._data).replace("\n", " "), max_width)
     else:
@@ -272,10 +274,6 @@ def summarize_variable(
     name: Hashable, var, col_width: int, marker: str = " ", max_width: int = None
 ):
     """Summarize a variable in one line, e.g., for the Dataset.__repr__."""
-    # GUID: XARRAY-007, XARRAY-008 field-rendering boundary: ``name`` owns only
-    # the label column, while the unchanged ``var`` remains authoritative for
-    # dimensions, dtype, and abbreviated data. One call emits all fields for
-    # that owner; ``col_width`` separates the label from those factual fields.
     if max_width is None:
         max_width_options = OPTIONS["display_width"]
         if not isinstance(max_width_options, int):
@@ -312,16 +310,10 @@ def _summarize_coord_levels(coord, col_width, marker="-"):
 
 
 def summarize_datavar(name, var, col_width):
-    # GUID: XARRAY-002 contract boundary: the first argument is the presentation
-    # label consumed by layout; the original variable remains a separate input.
-    # Dataset-owned unit decoration must cross this seam without replacing or
-    # mutating the variable whose dimensions, dtype, and values are summarized.
     return summarize_variable(name, var.variable, col_width)
 
 
 def summarize_coord(name: Hashable, var, col_width: int, display_name=None):
-    # GUID: XARRAY-001: keep the raw name for index/MultiIndex decisions while
-    # allowing Dataset-owned presentation metadata to travel separately.
     if display_name is None:
         display_name = name
     is_index = name in var.dims
@@ -379,10 +371,6 @@ def _calculate_col_width(col_items):
 
 
 def _mapping_repr(mapping, title, summarizer, col_width=None):
-    # GUID: XARRAY-005 ownership boundary: mapping iteration is the canonical
-    # owner-to-summary association. Presentation metadata must reach summarizer
-    # through the same (name, variable) pair; section formatters must not build
-    # or consume a detached sequence of unit labels.
     if col_width is None:
         col_width = _calculate_col_width(mapping)
     summary = [f"{title}:"]
@@ -393,10 +381,6 @@ def _mapping_repr(mapping, title, summarizer, col_width=None):
     return "\n".join(summary)
 
 
-# GUID: XARRAY-002 architecture boundary: keep this shared section formatter
-# free of Dataset-overview unit policy. That policy belongs to dataset_repr and
-# must enter through a per-variable summarizer seam while preserving mapping
-# iteration order and the existing _mapping_repr layout dependency.
 data_vars_repr = functools.partial(
     _mapping_repr, title="Data variables", summarizer=summarize_datavar
 )
@@ -408,9 +392,6 @@ attrs_repr = functools.partial(
 
 
 def coords_repr(coords, col_width=None, summarizer=summarize_coord):
-    # GUID: XARRAY-001 architecture boundary: keep this shared formatter free of
-    # Dataset-only coordinate-label policy. Dataset overview label decoration is
-    # owned by dataset_repr and enters through its call seam below.
     if col_width is None:
         col_width = _calculate_col_width(_get_col_items(coords))
     return _mapping_repr(
@@ -426,8 +407,6 @@ def indexes_repr(indexes):
 
 
 def dim_summary(obj):
-    # GUID: XARRAY-007 dimension-summary contract: Dataset overview dimensions
-    # remain sourced from the represented object's authoritative ``sizes``.
     elements = [f"{k}: {v}" for k, v in obj.sizes.items()]
     return ", ".join(elements)
 
@@ -524,104 +503,6 @@ def array_repr(arr):
 def dataset_repr(ds):
     summary = ["<xarray.{}>".format(type(ds).__name__)]
 
-    # GUID: XARRAY-009 non-mutation boundary: dataset_repr owns only newly
-    # constructed presentation state. The Dataset, its coordinate/data-variable
-    # mappings, each variable's data, and each variable's metadata remain
-    # read-only authorities across this boundary. Dependencies point from this
-    # orchestration function into dimension, section, and variable summarizers;
-    # those seams return text and do not transfer mutation ownership upstream.
-
-    # GUID: XARRAY-006, XARRAY-007, XARRAY-008 architecture ownership:
-    # dataset_repr owns overview topology and the shared label-column boundary.
-    # Coordinates flow only through coords_repr and data variables only through
-    # data_vars_repr; both receive their unchanged variables through the existing
-    # summarizer contracts. dim_summary and summarize_variable remain the factual
-    # field authorities, so unit-label length affects layout but not ownership or
-    # the dependency path used to obtain dimensions, dtype, and abbreviated data.
-
-    # GUID: XARRAY-003, XARRAY-004, XARRAY-005 architecture ownership:
-    # dataset_repr is the sole Dataset-overview unit-label policy owner. One
-    # private derivation contract serves both coordinate and data-variable
-    # mappings: it accepts an owning (name, variable) pair and returns only its
-    # display label. The original variable crosses the existing summarizer seam
-    # separately, keeping metadata lookup, fallback, and owner association out
-    # of shared Variable/DataArray and section-layout formatters.
-
-    # PSEUDOCODE -- GUID: XARRAY-003, XARRAY-004
-    # FUNCTION derive_unit_label(owner_name, owner_variable):
-    #   READ units_metadata only from owner_variable.attrs["units"].
-    #   IF units_metadata is absent OR cannot be displayed:
-    #       RETURN owner_name unchanged so overview rendering continues.
-    #   ELSE:
-    #       APPEND units_metadata to owner_name exactly as supplied; DO NOT
-    #       validate, parse, interpret, normalize, convert, or infer its text.
-    #       RETURN the resulting owner-specific display label.
-    #
-    # PSEUDOCODE -- GUID: XARRAY-003, XARRAY-005
-    # FOR EACH (owner_name, owner_variable) pair in coordinates, then data variables:
-    #   CALL derive_unit_label with that same pair.
-    #   INCLUDE only that returned label when calculating the shared column width.
-    #   HAND OFF the label together with the unchanged owner_variable to its section
-    #   summarizer, preserving mapping order and adjacency in the emitted line.
-    #   NEVER reuse, shift, or attach one pair's units_metadata to another pair.
-
-    # PSEUDOCODE -- GUID: XARRAY-006
-    # INITIALIZE the Dataset overview with its type header and dimension summary.
-    # IF the coordinate mapping is nonempty:
-    #   APPEND one Coordinates section by iterating only coordinate owner pairs.
-    # APPEND any unindexed-dimension notice after coordinates and before data variables.
-    # APPEND one Data variables section by iterating only data-variable owner pairs,
-    # including the existing empty-section representation when that mapping is empty.
-    # FOR EACH section handoff, preserve the source mapping's order and pass each
-    # unchanged variable with only its own derived display label; unit-label failure
-    # MUST fall back to the raw owner name without changing section membership.
-
-    # PSEUDOCODE -- GUID: XARRAY-007
-    # READ the dimension summary from the Dataset's authoritative dimension sizes.
-    # FOR EACH coordinate and data-variable owner pair:
-    #   DERIVE presentation metadata without mutating or substituting the variable.
-    #   HAND OFF the unchanged variable so the existing summarizer reads its own
-    #   dimensions and shape, dtype, and data values from that same variable.
-    #   CALCULATE the data-abbreviation budget only after the label, dimensions,
-    #   shape, and dtype fields have been accounted for.
-    #   IF the data exceeds that budget, abbreviate through the existing data path;
-    #   DO NOT alter factual fields or source values to make the line fit.
-    # IF unit-label derivation fails, use the raw owner name and continue producing
-    # the same dimension summary and variable facts from their authoritative inputs.
-
-    # PSEUDOCODE -- GUID: XARRAY-008
-    # DERIVE every owner-specific display label before section rendering.
-    # CALCULATE a shared label-column width that accommodates the longest derived
-    # coordinate or data-variable label, independent of unit-text length.
-    # FOR EACH original (owner_name, owner_variable) pair in mapping order:
-    #   EMIT its derived label and remaining representation fields in one summary
-    #   handoff so no field can migrate to, or be mistaken for, another owner.
-    #   PRESERVE explicit field boundaries; delegate constrained data width to the
-    #   existing abbreviation path rather than truncating dimensions, shape, or dtype.
-    # IF a label cannot be displayed, fall back for that owner only and retain the
-    # shared-width calculation and all remaining owner-associated fields.
-
-    # PSEUDOCODE -- GUID: XARRAY-009
-    # INPUT the Dataset as read-only representation source; retain its entry state:
-    # coordinate and data-variable membership, every variable's values, and every
-    # variable metadata mapping including any "units" entry.
-    # BUILD all headers, display labels, widths, and section summaries as new local
-    # presentation values; NEVER insert, remove, replace, or reorder Dataset members,
-    # write through variable data, or add, remove, or rewrite variable metadata.
-    # FOR EACH coordinate and data-variable owner pair in its existing mapping order:
-    #   READ the unchanged owning variable for dimensions, dtype, abbreviated values,
-    #   and metadata needed by presentation-only derivation.
-    #   HAND OFF that same variable to the appropriate read-only summarizer and append
-    #   only the returned text to the local representation summary.
-    # IF display-label derivation cannot represent "units":
-    #   USE the raw owner name as the local label; leave the metadata entry unchanged.
-    # IF any later representation step fails:
-    #   PROPAGATE its existing failure outcome without committing changes to Dataset
-    #   membership, variable values, or variable metadata.
-    # BEFORE returning the joined representation, preserve the entry state as the
-    # invariant output state; RETURN only newly constructed presentation text.
-
-    # GUID: XARRAY-003, XARRAY-004: shared Dataset-only unit-label derivation.
     def unit_display_name(name, var):
         units = var.attrs.get("units")
         if units is None:
@@ -659,11 +540,6 @@ def dataset_repr(ds):
     if unindexed_dims_str:
         summary.append(unindexed_dims_str)
 
-    # GUID: XARRAY-002 integration seam: dataset_repr owns the display-label
-    # provider and includes its labels in col_width; data_vars_repr remains the
-    # downstream section boundary and summarize_datavar receives each derived
-    # label alongside its unchanged owning variable. No unit policy belongs in
-    # shared Variable/DataArray or Dataset-difference representations.
     def summarize_datavar_with_units(name, var, col_width):
         display_name = unit_display_name(name, var)
         return summarize_datavar(display_name, var, col_width)
