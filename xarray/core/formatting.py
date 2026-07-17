@@ -310,6 +310,9 @@ def summarize_datavar(name, var, col_width):
 
 
 def summarize_coord(name: Hashable, var, col_width: int):
+    # GUID: XARRAY-001 contract boundary: `name` remains the coordinate identity
+    # used for index/MultiIndex decisions. A future Dataset-owned display label
+    # must travel separately through this internal summary seam before layout.
     is_index = name in var.dims
     marker = "*" if is_index else " "
     if is_index:
@@ -384,6 +387,9 @@ attrs_repr = functools.partial(
 
 
 def coords_repr(coords, col_width=None):
+    # GUID: XARRAY-001 architecture boundary: keep this shared formatter free of
+    # Dataset-only coordinate-label policy. Dataset overview label decoration is
+    # owned by dataset_repr and enters through its call seam below.
     if col_width is None:
         col_width = _calculate_col_width(_get_col_items(coords))
     return _mapping_repr(
@@ -515,6 +521,11 @@ def dataset_repr(ds):
     summary.append("{}({})".format(dims_start, dim_summary(ds)))
 
     if ds.coords:
+        # GUID: XARRAY-001 integration seam: dataset_repr owns any Dataset-only
+        # coordinate display-label provider; coords_repr remains the downstream
+        # layout dependency so standalone Coordinates representations do not
+        # acquire this policy. Keep raw coordinate identities distinct from the
+        # independently derived labels passed toward summarize_coord.
         summary.append(coords_repr(ds.coords, col_width=col_width))
 
     unindexed_dims_str = unindexed_dims_repr(ds.dims, ds.coords)
