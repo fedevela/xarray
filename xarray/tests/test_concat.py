@@ -48,6 +48,235 @@ def test_concat_compat():
         concat([ds2, ds1], dim="q")
 
 
+class TestRelaxedDatasetConcatContract:
+    def test_xconcat_001_unequal_data_variable_sets_are_accepted_unchanged(self):
+        """GUID: XCONCAT-001; unequal inputs transition to successful concat."""
+        left = Dataset({"left": 1})
+        right = Dataset({"right": 2})
+        original_left = left.copy(deep=True)
+        original_right = right.copy(deep=True)
+
+        concat([left, right], dim="source", data_vars="different")
+
+        assert_identical(left, original_left)
+        assert_identical(right, original_right)
+
+    def test_xconcat_002_distinct_data_variables_form_exact_result_union(self):
+        """GUID: XCONCAT-002; overlapping and distinct inputs form their union."""
+        left = Dataset({"shared": 1, "left": 2})
+        right = Dataset({"shared": 3, "right": 4})
+
+        actual = concat([left, right], dim="source")
+
+        assert set(actual.data_vars) == {"shared", "left", "right"}
+
+    def test_xconcat_002_repeated_data_variable_name_appears_once_in_result(self):
+        """GUID: XCONCAT-002; repeated input names transition to one result name."""
+        datasets = [Dataset({"shared": value}) for value in [1, 2, 3]]
+
+        actual = concat(datasets, dim="source")
+
+        assert list(actual.data_vars).count("shared") == 1
+        assert_array_equal(actual["shared"], [1, 2, 3])
+
+    def test_xconcat_003_absent_input_contributions_use_applicable_missing_values(self):
+        """GUID: XCONCAT-003; absent contributions transition to missing values."""
+        datasets = [
+            Dataset({"shared": ("x", [1, 2])}),
+            Dataset({"shared": ("x", [3, 4, 5]), "partial": ("x", [6, 7, 8])}),
+        ]
+
+        actual = concat(datasets, dim="x")
+
+        assert_array_equal(actual["partial"], [np.nan, np.nan, 6, 7, 8])
+
+    def test_xconcat_004_retained_source_values_remain_unchanged_at_source_positions(self):
+        """GUID: XCONCAT-004; source values retain value and result position."""
+        datasets = [
+            Dataset({"shared": ("x", [0]), "partial": ("x", [-4])}),
+            Dataset({"shared": ("x", [1, 2])}),
+            Dataset({"shared": ("x", [3, 4]), "partial": ("x", [9, 11])}),
+        ]
+
+        actual = concat(datasets, dim="x")
+
+        assert_array_equal(actual["partial"][[0, 3, 4]], [-4, 9, 11])
+
+    def test_xconcat_005_shared_variable_retains_values_in_input_order_with_partial_variable(self):
+        """GUID: XCONCAT-005; shared values retain established input ordering."""
+        datasets = [
+            Dataset({"shared": ("x", [3, 4]), "partial": ("x", [30, 40])}),
+            Dataset({"shared": ("x", [1])}),
+            Dataset({"shared": ("x", [2, 5])}),
+        ]
+
+        actual = concat(datasets, dim="x")
+
+        assert_array_equal(actual["shared"], [3, 4, 1, 2, 5])
+
+    def test_xconcat_003_xconcat_004_partial_values_and_missing_gaps_follow_input_order(self):
+        """GUID: XCONCAT-003, XCONCAT-004; values and gaps retain input positions."""
+        datasets = [
+            Dataset({"shared": ("x", [0, 1]), "partial": ("x", [10, 11])}),
+            Dataset({"shared": ("x", [2, 3, 4])}),
+            Dataset({"shared": ("x", [5]), "partial": ("x", [20])}),
+        ]
+
+        actual = concat(datasets, dim="x")
+
+        assert_array_equal(actual["partial"], [10, 11, np.nan, np.nan, np.nan, 20])
+
+    def test_xconcat_006_relaxed_partial_variable_and_missing_portions_preserve_dimension_and_coordinate_alignment(
+        self,
+    ):
+        """GUID: XCONCAT-006; relaxed partial data preserves established alignment."""
+        left = Dataset(
+            {"shared": ("x", [1, 2]), "partial": ("x", [10, 20])},
+            coords={"x": [0, 1]},
+        )
+        right = Dataset({"shared": ("x", [3, 4])}, coords={"x": [1, 2]})
+        right_with_missing = right.assign(partial=("x", [np.nan, np.nan]))
+
+        actual = concat([left, right], dim="source", join="outer")
+        expected = concat(
+            [left, right_with_missing], dim="source", join="outer"
+        )
+
+        assert_identical(actual, expected)
+        assert actual["partial"].dims == ("source", "x")
+        assert_array_equal(actual["x"], [0, 1, 2])
+
+    def test_xconcat_007_relaxed_matching_variable_sets_equal_established_concat_result(
+        self,
+    ):
+        """GUID: XCONCAT-007; matching sets preserve the established concat result."""
+        datasets = [
+            Dataset(
+                {"varying": ("x", [1, 2]), "constant": 7},
+                coords={"x": [0, 1]},
+            ),
+            Dataset(
+                {"varying": ("x", [3]), "constant": 7}, coords={"x": [2]}
+            ),
+        ]
+        expected = Dataset(
+            {"varying": ("x", [1, 2, 3]), "constant": 7},
+            coords={"x": [0, 1, 2]},
+        )
+
+        actual = concat(datasets, dim="x", data_vars="different")
+
+        assert_identical(actual, expected)
+
+    def test_xconcat_007_relaxed_matching_variable_sets_introduce_no_new_missing_portions(
+        self,
+    ):
+        """GUID: XCONCAT-007; matching sets gain no relaxed-interface missing data."""
+        datasets = [
+            Dataset({"first": ("x", [1, 2]), "second": ("x", [10, 20])}),
+            Dataset({"first": ("x", [3]), "second": ("x", [30])}),
+        ]
+
+        actual = concat(datasets, dim="x")
+
+        for name in ["first", "second"]:
+            assert actual[name].dtype == datasets[0][name].dtype
+            assert not actual[name].isnull().any()
+
+    # ACCEPTANCE ARCHITECTURE — GUID: XCONCAT-008
+    # This contract class owns the dataset-concatenation acceptance boundary for
+    # partially present variables.  The three methods below are the independent
+    # architecture loci for first-input, later-input, and multiple-input absence;
+    # each locus owns its input topology and complete expected variable contents.
+    #
+    # Dependency direction is test case -> public `concat` entry point -> result
+    # inspection.  Tests must not depend on `_dataset_concat` or on a test-only
+    # adapter that reproduces its missing-contribution policy.  Keeping fixtures
+    # local to each locus preserves input-position ownership and leaves production
+    # fill construction, ordering, and assembly behind the public API boundary.
+
+    def test_xconcat_008_variable_absent_from_first_input_yields_first_missing_portion_and_preserves_later_values(
+        self,
+    ):
+        """GUID: XCONCAT-008; first absence yields a gap, then source values."""
+        # LOGIC XCONCAT-008 / first-input absence
+        # GIVEN two ordered input datasets whose concatenation-axis lengths are
+        # known, and a target variable that exists only in the later dataset.
+        # WHEN relaxed dataset concatenation processes each input in order:
+        #   - if the target variable is absent from the current input, append a
+        #     missing-value portion matching that input's axis length;
+        #   - otherwise, append that input's unchanged target-variable values.
+        # THEN compare the complete target-variable result with the ordered
+        # sequence [first-input missing portion, later-input source values].
+        # FAIL if the first portion is not wholly missing, if its length does
+        # not match the first input, or if any later source value changes.
+        datasets = [
+            Dataset({"shared": ("x", [0, 1])}),
+            Dataset(
+                {"shared": ("x", [2, 3, 4]), "partial": ("x", [6, 7, 8])}
+            ),
+        ]
+
+        actual = concat(datasets, dim="x")
+
+        assert_array_equal(actual["partial"], [np.nan, np.nan, 6, 7, 8])
+
+    def test_xconcat_008_variable_absent_from_later_input_preserves_first_values_and_yields_later_missing_portion(
+        self,
+    ):
+        """GUID: XCONCAT-008; first values precede a later missing portion."""
+        # LOGIC XCONCAT-008 / later-input absence
+        # GIVEN two ordered input datasets whose concatenation-axis lengths are
+        # known, and a target variable that exists only in the first dataset.
+        # WHEN relaxed dataset concatenation processes each input in order:
+        #   - if the target variable is present, append that input's unchanged
+        #     target-variable values;
+        #   - otherwise, append a missing-value portion matching that input's
+        #     axis length.
+        # THEN compare the complete target-variable result with the ordered
+        # sequence [first-input source values, later-input missing portion].
+        # FAIL if any first-input source value changes, if the later portion is
+        # not wholly missing, or if its length does not match the later input.
+        datasets = [
+            Dataset({"shared": ("x", [0, 1]), "partial": ("x", [6, 7])}),
+            Dataset({"shared": ("x", [2, 3, 4])}),
+        ]
+
+        actual = concat(datasets, dim="x")
+
+        assert_array_equal(actual["partial"], [6, 7, np.nan, np.nan, np.nan])
+
+    def test_xconcat_008_variable_absent_from_multiple_inputs_yields_each_missing_portion_and_preserves_present_values(
+        self,
+    ):
+        """GUID: XCONCAT-008; multiple absences yield gaps around source values."""
+        # LOGIC XCONCAT-008 / multiple-input absence
+        # GIVEN at least three ordered input datasets with known
+        # concatenation-axis lengths, where the target variable is absent from
+        # multiple inputs and present in at least one input.
+        # WHEN relaxed dataset concatenation iterates over every input:
+        #   - if the target variable is absent, append a missing-value portion
+        #     matching that input's axis length;
+        #   - otherwise, append that input's unchanged target-variable values.
+        # THEN compare each result portion, in input order, with missing values
+        # for every absent input and source values for every present input.
+        # FAIL if any absent-input portion is not wholly missing or has the
+        # wrong length, or if any present-input value or position changes.
+        datasets = [
+            Dataset({"shared": ("x", [0])}),
+            Dataset({"shared": ("x", [1, 2]), "partial": ("x", [6, 7])}),
+            Dataset({"shared": ("x", [3, 4, 5])}),
+            Dataset({"shared": ("x", [6]), "partial": ("x", [8])}),
+        ]
+
+        actual = concat(datasets, dim="x")
+
+        assert_array_equal(
+            actual["partial"],
+            [np.nan, 6, 7, np.nan, np.nan, np.nan, 8],
+        )
+
+
 class TestConcatDataset:
     @pytest.fixture
     def data(self):
@@ -190,10 +419,9 @@ class TestConcatDataset:
             concat([data0, data1], "dim1", compat="identical")
         assert_identical(data, concat([data0, data1], "dim1", compat="equals"))
 
-        with raises_regex(ValueError, "present in some datasets"):
-            data0, data1 = deepcopy(split_data)
-            data1["foo"] = ("bar", np.random.randn(10))
-            concat([data0, data1], "dim1")
+        data0, data1 = deepcopy(split_data)
+        data1["foo"] = ("bar", np.random.randn(10))
+        assert "foo" in concat([data0, data1], "dim1").data_vars
 
         with raises_regex(ValueError, "compat.* invalid"):
             concat(split_data, "dim1", compat="foobar")
