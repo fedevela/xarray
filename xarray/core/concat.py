@@ -349,6 +349,11 @@ def _dataset_concat(
     dim, coord = _calc_concat_dim_coord(dim)
     # Make sure we're working on a copy (we'll be loading variables)
     datasets = [ds.copy() for ds in datasets]
+    # ARCHITECTURE BOUNDARY — GUID: XCONCAT-006
+    # `align` remains the sole owner of non-concatenation-dimension and coordinate
+    # alignment.  Partial-variable assembly consumes these aligned datasets and
+    # `_parse_datasets` sizes downstream; it must not establish a second alignment
+    # policy while constructing an absent input's contribution.
     datasets = align(
         *datasets, join=join, copy=False, exclude=[dim], fill_value=fill_value
     )
@@ -375,10 +380,13 @@ def _dataset_concat(
         datasets, dim, dim_names, data_vars, coords, compat
     )
 
-    # GUID: XCONCAT-001, XCONCAT-002 -- a data variable which is absent from
-    # any input cannot be merged, so combine it along the concatenation
-    # dimension instead.  Missing slots are supplied below without modifying
-    # any of the input datasets.
+    # INTEGRATION SEAM — GUID: XCONCAT-001, XCONCAT-002, XCONCAT-007
+    # Variable-presence classification is the only entry into missing-contribution
+    # assembly.  A complete variable set therefore retains the established
+    # merge/concat routing and cannot acquire relaxed-interface missing portions.
+    # A data variable absent from any input cannot be merged, so combine it along
+    # the concatenation dimension instead. Missing slots are supplied below without
+    # modifying any input dataset.
     missing_data_names = set()
     for name in data_names:
         if any(name not in ds.data_vars for ds in datasets):
